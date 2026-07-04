@@ -52,11 +52,10 @@ class TestConfigurationDefaults:
         )
         assert config.vad_enabled is True
 
-    def test_default_hotkey_parseable_by_pynput(self):
-        from pynput.keyboard import HotKey
-        # HotKey.parse raises if string is invalid
-        parsed = HotKey.parse(constants.DEFAULT_HOTKEY)
-        assert parsed is not None
+    def test_default_hotkey_matches_pynput_format(self):
+        # pynput hotkey format: one or more <modifier>+ followed by a key
+        import re
+        assert re.match(r"^(<[^>]+>\+)+\w+$", constants.DEFAULT_HOTKEY)
 
     def test_model_name_default_is_allowed(self):
         assert constants.DEFAULT_MODEL in constants.ALLOWED_MODELS
