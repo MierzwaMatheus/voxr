@@ -1,6 +1,8 @@
 import json
 
+from voxr import constants
 from voxr.enums import AppState, ChunkStatus, InputMode, SessionStatus, TranscriptionStatus
+from voxr.models import ChunkResult
 
 
 class TestEnumSerialization:
@@ -58,3 +60,56 @@ class TestEnumSerialization:
         assert AppState.RECORDING in AppState
         assert AppState.PROCESSING in AppState
         assert AppState.ERROR in AppState
+
+
+class TestChunkResult:
+    def _make_chunk(self, **kwargs):
+        defaults = {
+            "chunk_id": "abc-123",
+            "chunk_index": 0,
+            "text": "hello",
+            "confidence": 0.9,
+            "retry_count": 0,
+            "status": ChunkStatus.SUCCESS,
+        }
+        defaults.update(kwargs)
+        return ChunkResult(**defaults)
+
+    def test_failed_chunk_contains_placeholder_text(self):
+        chunk = self._make_chunk(
+            text=constants.PLACEHOLDER_TEXT,
+            confidence=None,
+            status=ChunkStatus.FAILED_WITH_PLACEHOLDER,
+        )
+        assert constants.PLACEHOLDER_TEXT in chunk.text
+
+    def test_placeholder_text_is_exact_constant(self):
+        chunk = self._make_chunk(
+            text=constants.PLACEHOLDER_TEXT,
+            confidence=None,
+            status=ChunkStatus.FAILED_WITH_PLACEHOLDER,
+        )
+        assert chunk.text == constants.PLACEHOLDER_TEXT
+
+    def test_placeholder_text_constant_value(self):
+        assert constants.PLACEHOLDER_TEXT == "[trecho não transcrito]"
+
+    def test_successful_chunk_has_confidence(self):
+        chunk = self._make_chunk(confidence=0.95, status=ChunkStatus.SUCCESS)
+        assert chunk.confidence == 0.95
+
+    def test_failed_chunk_has_none_confidence(self):
+        chunk = self._make_chunk(
+            text=constants.PLACEHOLDER_TEXT,
+            confidence=None,
+            status=ChunkStatus.FAILED_WITH_PLACEHOLDER,
+        )
+        assert chunk.confidence is None
+
+    def test_chunk_index_is_zero_based(self):
+        chunk = self._make_chunk(chunk_index=0)
+        assert chunk.chunk_index == 0
+
+    def test_chunk_retry_count_default(self):
+        chunk = self._make_chunk(retry_count=0)
+        assert chunk.retry_count == 0
