@@ -66,3 +66,42 @@ class TestFullDictationFlow:
         mock_model = MagicMock()
         app = VoxrApp(config=config, model=mock_model)
         assert app.state == AppState.IDLE
+
+
+class TestCancelFlow:
+    """T058 — hotkey → gravação → Escape cancela sem injetar texto (FR-006)."""
+
+    def test_cancel_does_not_call_inject_text(self, mocker):
+        """on_cancel() durante gravação não injeta texto."""
+        config = make_config()
+        mock_model = MagicMock()
+
+        mocker.patch("voxr.app.audio.record", return_value=FAKE_AUDIO_PATH)
+        mock_inject = mocker.patch("voxr.app.injection.inject_text", return_value=True)
+
+        app = VoxrApp(config=config, model=mock_model)
+        app.on_hotkey_activate()  # IDLE → RECORDING
+        app.on_cancel()           # cancela
+
+        mock_inject.assert_not_called()
+
+    def test_cancel_returns_state_to_idle(self, mocker):
+        """on_cancel() retorna o estado para IDLE."""
+        config = make_config()
+        mock_model = MagicMock()
+
+        mocker.patch("voxr.app.audio.record", return_value=FAKE_AUDIO_PATH)
+
+        app = VoxrApp(config=config, model=mock_model)
+        app.on_hotkey_activate()
+        app.on_cancel()
+
+        assert app.state == AppState.IDLE
+
+    def test_cancel_when_idle_is_noop(self):
+        """on_cancel() quando IDLE não levanta exceção e mantém IDLE."""
+        config = make_config()
+        mock_model = MagicMock()
+        app = VoxrApp(config=config, model=mock_model)
+        app.on_cancel()
+        assert app.state == AppState.IDLE

@@ -48,5 +48,13 @@ class VoxrApp:
         injection.inject_text(result.full_text)
         self.state = AppState.IDLE
 
+    def on_cancel(self) -> None:
+        if self.state != AppState.RECORDING:
+            return
+        if self._stop_event:
+            self._stop_event.set()
+        self._session = None
+        self.state = AppState.IDLE
+
     def run(self) -> None:
         raise NotImplementedError
