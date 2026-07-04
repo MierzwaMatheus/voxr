@@ -16,6 +16,9 @@ class RecordingWidget:
         self._mode: Optional[str] = None
         self._window = None
         self._timer_id = None
+        self._elapsed: float = 0.0
+        self._max_seconds: int = 0
+        self._countdown_active: bool = False
 
     def show_recording(self, audio_level_stream) -> None:
         self._mode = "recording"
@@ -42,6 +45,7 @@ class RecordingWidget:
     def update_timer(self, elapsed: float, max_seconds: int) -> None:
         self._elapsed = elapsed
         self._max_seconds = max_seconds
+        self._countdown_active = (max_seconds - elapsed) <= 10
         if _HAS_GTK and self._window:
             self._window.queue_draw()
 

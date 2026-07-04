@@ -17,6 +17,27 @@ def make_widget() -> RecordingWidget:
     return RecordingWidget()
 
 
+class TestRecordingWidgetUpdateTimer:
+    def test_update_timer_stores_elapsed_and_max(self):
+        widget = make_widget()
+        widget.show_recording(MagicMock())
+        widget.update_timer(elapsed=15.0, max_seconds=60)
+        assert widget._elapsed == 15.0
+        assert widget._max_seconds == 60
+
+    def test_update_timer_countdown_flag_set_in_last_10s(self):
+        widget = make_widget()
+        widget.show_recording(MagicMock())
+        widget.update_timer(elapsed=52.0, max_seconds=60)
+        assert widget._countdown_active is True
+
+    def test_update_timer_countdown_not_set_before_last_10s(self):
+        widget = make_widget()
+        widget.show_recording(MagicMock())
+        widget.update_timer(elapsed=40.0, max_seconds=60)
+        assert widget._countdown_active is False
+
+
 class TestRecordingWidgetShowHide:
     def test_show_recording_marks_widget_as_visible(self):
         widget = make_widget()
