@@ -6,6 +6,9 @@ def inject_text(text: str) -> bool:
     Retorna True se sucesso, False se xdotool não disponível ou falhou."""
     try:
         result = subprocess.run(
+            # --clearmodifiers: releases active modifier keys (e.g. Alt from the hotkey)
+            # before typing, otherwise they leak and produce wrong characters.
+            # --: prevents text starting with '-' from being parsed as a flag.
             ["xdotool", "type", "--clearmodifiers", "--", text],
             check=False,
         )
