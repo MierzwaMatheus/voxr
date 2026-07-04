@@ -51,6 +51,7 @@ class VoxrApp:
             audio_file_path="",
             status=SessionStatus.IN_PROGRESS,
         )
+        self._widget.show_recording(None)
         self._audio_path = audio.record(self._session, self._stop_event, self._config.max_recording_seconds)
 
     def _stop_and_process(self) -> None:
@@ -59,8 +60,8 @@ class VoxrApp:
             self._stop_event.set()
 
         result = transcription.transcribe_session(self._session, self._model, self._config)
-        if not injection.inject_text(result.full_text):
-            injection.copy_to_clipboard(result.full_text)
+        injection.insert_or_clipboard(result.full_text)
+        self._widget.hide()
         self.state = AppState.IDLE
 
     def on_timeout(self) -> None:

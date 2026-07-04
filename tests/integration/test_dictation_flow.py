@@ -226,3 +226,60 @@ class TestVoxrAppInit:
         mock_widget_cls = mocker.patch("voxr.app.RecordingWidget")
         app = VoxrApp(config=make_config(), model=MagicMock())
         mock_widget_cls.assert_called_once()
+
+
+class TestStateMachine:
+    """T062 — on_hotkey_activate() exibe widget ao gravar e usa insert_or_clipboard após transcrição."""
+
+    def test_recording_shows_widget(self, mocker):
+        """Primeiro acionamento mostra o widget de gravação."""
+        config = make_config()
+        mocker.patch("voxr.app.audio.record", return_value=FAKE_AUDIO_PATH)
+        mock_widget = MagicMock()
+        mocker.patch("voxr.app.RecordingWidget", return_value=mock_widget)
+        mocker.patch("voxr.app.HotkeyListener")
+        mocker.patch("voxr.app.TrayIcon")
+
+        app = VoxrApp(config=config, model=MagicMock())
+        app.on_hotkey_activate()
+
+        mock_widget.show_recording.assert_called_once()
+
+    def test_processing_uses_insert_or_clipboard(self, mocker):
+        """Após gravação, usa insert_or_clipboard em vez de inject_text direto."""
+        config = make_config()
+        mocker.patch("voxr.app.audio.record", return_value=FAKE_AUDIO_PATH)
+        mocker.patch(
+            "voxr.app.transcription.transcribe_session",
+            return_value=MagicMock(full_text=FAKE_TRANSCRIBED_TEXT),
+        )
+        mock_insert = mocker.patch("voxr.app.injection.insert_or_clipboard", return_value="injected")
+        mocker.patch("voxr.app.RecordingWidget")
+        mocker.patch("voxr.app.HotkeyListener")
+        mocker.patch("voxr.app.TrayIcon")
+
+        app = VoxrApp(config=config, model=MagicMock())
+        app.on_hotkey_activate()
+        app.on_hotkey_activate()
+
+        mock_insert.assert_called_once_with(FAKE_TRANSCRIBED_TEXT)
+
+    def test_widget_hidden_after_processing(self, mocker):
+        """Widget é fechado após transcrição e injeção."""
+        config = make_config()
+        mocker.patch("voxr.app.audio.record", return_value=FAKE_AUDIO_PATH)
+        mocker.patch(
+            "voxr.app.transcription.transcribe_session",
+            return_value=MagicMock(full_text=FAKE_TRANSCRIBED_TEXT),
+        )
+        mocker.patch("voxr.app.injection.insert_or_clipboard", return_value="injected")
+        mock_widget = MagicMock()
+        mocker.patch("voxr.app.RecordingWidget", return_value=mock_widget)
+        mocker.patch("voxr.app.HotkeyListener")
+        mocker.patch("voxr.app.TrayIcon")
+
+        app = VoxrApp(config=config, model=MagicMock())
+        app.on_hotkey_activate()
+        app.on_hotkey_activate()
+
+        mock_widget.hide.assert_called_once()
