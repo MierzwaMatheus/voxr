@@ -27,13 +27,18 @@ def copy_to_clipboard(text: str) -> None:
             text=True,
             check=False,
         )
+        return
     except FileNotFoundError:
+        pass
+    try:
         subprocess.run(
             ["xsel", "--clipboard", "--input"],
             input=text,
             text=True,
             check=False,
         )
+    except FileNotFoundError:
+        pass
 
 
 def insert_or_clipboard(text: str) -> str:

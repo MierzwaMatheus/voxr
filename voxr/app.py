@@ -37,6 +37,21 @@ class VoxrApp:
         else:
             self._hotkey = None
 
+    def _gtk(self, fn, *args) -> None:
+        """Schedule fn(*args) on the GTK main thread when a loop is running, else call directly.
+
+        Allows unit/integration tests (no main loop) to verify widget calls synchronously
+        while production code (Gtk.main() running) stays thread-safe.
+        """
+        try:
+            from gi.repository import GLib
+            if GLib.main_depth() > 0:
+                GLib.idle_add(fn, *args)
+                return
+        except Exception:
+            pass
+        fn(*args)
+
     def on_hotkey_activate(self) -> None:
         if self.state == AppState.IDLE:
             self._start_recording()
@@ -44,7 +59,6 @@ class VoxrApp:
             self._stop_and_process()
 
     def _start_recording(self) -> None:
-        from gi.repository import GLib
         self.state = AppState.RECORDING
         self._stop_event = threading.Event()
         self._session = RecordingSession(
@@ -56,14 +70,31 @@ class VoxrApp:
             audio_file_path="",
             status=SessionStatus.IN_PROGRESS,
         )
-        GLib.idle_add(self._widget.show_recording, None)
+        self._gtk(self._widget.show_recording, None)
         self._record_thread = threading.Thread(
             target=self._record_loop, daemon=True, name="voxr-record"
         )
         self._record_thread.start()
 
+        # In production (GLib main loop active), fire on_timeout after max_recording_seconds
+        # so the timeout path goes through the same _stop_and_process as a manual stop.
+        try:
+            from gi.repository import GLib
+            if GLib.main_depth() > 0:
+                max_ms = (self._config.max_recording_seconds if self._config else 60) * 1000
+
+                def _timeout_cb() -> bool:
+                    if self.state == AppState.RECORDING:
+                        self.on_timeout()
+                    return False  # one-shot timer
+
+                GLib.timeout_add(max_ms, _timeout_cb)
+        except Exception:
+            pass
+
     def _record_loop(self) -> None:
-        # Runs in recording thread; audio.record() blocks until stop_event or timeout.
+        # Runs in the recording thread. Only records — never processes.
+        # Processing is always triggered externally (second hotkey or on_timeout).
         print("[voxr] gravando…")
         audio_path = audio.record(
             self._session, self._stop_event, self._config.max_recording_seconds
@@ -71,29 +102,19 @@ class VoxrApp:
         self._audio_path = audio_path
         self._session.audio_file_path = audio_path
         print(f"[voxr] áudio salvo: {audio_path}")
-        # If recording ended by timeout (not by user pressing hotkey), trigger process.
-        if self.state == AppState.RECORDING:
-            self._do_process()
 
     def _stop_and_process(self) -> None:
-        from gi.repository import GLib
         print("[voxr] parando gravação…")
         self.state = AppState.PROCESSING
         if self._stop_event:
             self._stop_event.set()
-        GLib.idle_add(self._widget.show_processing)
-        # Wait for the recording thread to finish, then process.
-        threading.Thread(
-            target=self._join_then_process, daemon=True, name="voxr-process"
-        ).start()
-
-    def _join_then_process(self) -> None:
+        self._gtk(self._widget.show_processing)
+        # Join the record thread so audio_file_path is set before processing.
         if self._record_thread:
             self._record_thread.join()
         self._do_process()
 
     def _do_process(self) -> None:
-        from gi.repository import GLib
         if self._session is None:
             return
         print("[voxr] transcrevendo…")
@@ -101,8 +122,8 @@ class VoxrApp:
         print(f"[voxr] texto: {result.full_text!r}")
         mode = injection.insert_or_clipboard(result.full_text)
         print(f"[voxr] inserido via {mode}")
-        GLib.idle_add(self._widget.hide)
-        GLib.idle_add(self._tray.set_state, AppState.IDLE)
+        self._gtk(self._widget.hide)
+        self._gtk(self._tray.set_state, AppState.IDLE)
         self.state = AppState.IDLE
 
     def on_timeout(self) -> None:
@@ -110,14 +131,14 @@ class VoxrApp:
             self._stop_and_process()
 
     def on_cancel(self) -> None:
-        from gi.repository import GLib
         if self.state != AppState.RECORDING:
             return
+        # Set IDLE before joining so _record_loop sees stop_event and exits cleanly.
+        self.state = AppState.IDLE
         if self._stop_event:
             self._stop_event.set()
         self._session = None
-        GLib.idle_add(self._widget.hide)
-        self.state = AppState.IDLE
+        self._gtk(self._widget.hide)
 
     def run(self) -> None:
         import gi
