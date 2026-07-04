@@ -1,0 +1,85 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "voxr"
+version = "0.1.0-dev"
+description = "Voxr — offline voice dictation for Linux"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Matheus Oliveira", email = "mierzwa.oliveira@gmail.com"}
+]
+keywords = ["voice", "dictation", "offline", "whisper", "linux"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: X11 Applications :: GTK",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+]
+requires-python = ">=3.11"
+
+dependencies = [
+    "faster-whisper>=1.0.0",
+    "sounddevice>=0.4.5",
+    "pynput>=1.7.6",
+    "PyGObject>=3.42.0",
+    "huggingface-hub>=0.21.0",
+    "soundfile>=0.12.1",
+    "numpy>=1.24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.11.0",
+    "ruff>=0.1.0",
+]
+
+[project.urls]
+Documentation = "https://github.com/yourusername/voxr"
+Repository = "https://github.com/yourusername/voxr"
+Issues = "https://github.com/yourusername/voxr/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["voxr"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --strict-markers"
+markers = [
+    "unit: unit tests (no I/O)",
+    "integration: integration tests (requires X11)",
+]
+
+[tool.coverage.run]
+source = ["voxr"]
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]  # line length (handled by formatter)
+
+[tool.ruff.lint.isort]
+known-first-party = ["voxr"]
