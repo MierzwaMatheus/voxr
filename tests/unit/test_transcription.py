@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 from voxr import transcription
 from voxr.enums import ChunkStatus, InputMode, SessionStatus, TranscriptionStatus
