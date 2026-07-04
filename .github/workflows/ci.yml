@@ -23,7 +23,9 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies
-        run: pip install --upgrade pip setuptools && pip install -e ".[dev]" --timeout=120
+        run: |
+          pip install --upgrade pip setuptools wheel
+          pip install -e ".[dev]" --prefer-binary --timeout=120
 
       - name: Lint
         run: ruff check voxr/ tests/
