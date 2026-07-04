@@ -1,8 +1,8 @@
 from unittest.mock import MagicMock
 
 from voxr import transcription
-from voxr.enums import ChunkStatus
-from voxr.models import ChunkResult
+from voxr.enums import ChunkStatus, InputMode, SessionStatus, TranscriptionStatus
+from voxr.models import ChunkResult, RecordingSession
 
 
 class TestTranscribe:
@@ -58,3 +58,53 @@ class TestTranscribe:
         result = transcription.transcribe("audio.wav", mock_model)
 
         assert result.retry_count == 2
+
+
+def _make_session(audio_file_path="audio.wav"):
+    return RecordingSession(
+        session_id="test-session-001",
+        start_time=0.0,
+        end_time=1.0,
+        duration_seconds=1.0,
+        input_mode=InputMode.TOGGLE,
+        audio_file_path=audio_file_path,
+        status=SessionStatus.COMPLETED,
+    )
+
+
+class TestTranscribeSession:
+    def test_returns_success_transcription_result_in_default_mode(self, mocker):
+        mock_segment = MagicMock()
+        mock_segment.text = "transcribed text"
+        mock_model = MagicMock()
+        mock_model.transcribe.return_value = ([mock_segment], MagicMock())
+        mock_config = MagicMock()
+        mock_config.pipeline_mode_enabled = False
+
+        result = transcription.transcribe_session(_make_session(), mock_model, mock_config)
+
+        assert result.status == TranscriptionStatus.SUCCESS
+
+    def test_full_text_equals_chunk_text_in_default_mode(self, mocker):
+        mock_segment = MagicMock()
+        mock_segment.text = "hello from whisper"
+        mock_model = MagicMock()
+        mock_model.transcribe.return_value = ([mock_segment], MagicMock())
+        mock_config = MagicMock()
+        mock_config.pipeline_mode_enabled = False
+
+        result = transcription.transcribe_session(_make_session(), mock_model, mock_config)
+
+        assert result.full_text == result.chunks[0].text
+
+    def test_produces_exactly_one_chunk_in_default_mode(self, mocker):
+        mock_segment = MagicMock()
+        mock_segment.text = "single chunk"
+        mock_model = MagicMock()
+        mock_model.transcribe.return_value = ([mock_segment], MagicMock())
+        mock_config = MagicMock()
+        mock_config.pipeline_mode_enabled = False
+
+        result = transcription.transcribe_session(_make_session(), mock_model, mock_config)
+
+        assert len(result.chunks) == 1

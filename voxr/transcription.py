@@ -1,7 +1,8 @@
+import time
 import uuid
 
-from voxr.enums import ChunkStatus
-from voxr.models import ChunkResult
+from voxr.enums import ChunkStatus, TranscriptionStatus
+from voxr.models import ChunkResult, TranscriptionResult
 
 
 _MAX_RETRIES = 2
@@ -32,4 +33,17 @@ def transcribe(audio_path: str, model, language: str = "auto", vad_filter: bool 
         confidence=None,
         retry_count=_MAX_RETRIES,
         status=ChunkStatus.FAILED_WITH_PLACEHOLDER,
+    )
+
+
+def transcribe_session(session, model, config) -> TranscriptionResult:
+    chunk = transcribe(session.audio_file_path, model)
+    full_text = chunk.text
+    return TranscriptionResult(
+        result_id=str(uuid.uuid4()),
+        session_id=session.session_id,
+        full_text=full_text,
+        chunks=[chunk],
+        status=TranscriptionStatus.SUCCESS,
+        timestamp=time.time(),
     )
