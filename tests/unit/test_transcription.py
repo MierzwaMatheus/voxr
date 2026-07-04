@@ -1,8 +1,10 @@
+import pytest
 from unittest.mock import MagicMock
 
 from voxr import transcription
 from voxr.enums import ChunkStatus, InputMode, SessionStatus, TranscriptionStatus
 from voxr.models import ChunkResult, RecordingSession
+from voxr.transcription import ModelNotFoundError
 
 
 class TestTranscribe:
@@ -108,3 +110,21 @@ class TestTranscribeSession:
         result = transcription.transcribe_session(_make_session(), mock_model, mock_config)
 
         assert len(result.chunks) == 1
+
+
+class TestLoadModel:
+    def test_returns_model_when_file_exists(self, tmp_path, mocker):
+        model_file = tmp_path / "medium.bin"
+        model_file.write_bytes(b"fake model")
+        mocker.patch("voxr.transcription.MODELS_DIR", tmp_path)
+        mocker.patch("voxr.transcription.WhisperModel", return_value=MagicMock())
+
+        result = transcription.load_model("medium")
+
+        assert result is not None
+
+    def test_raises_model_not_found_error_when_file_missing(self, tmp_path, mocker):
+        mocker.patch("voxr.transcription.MODELS_DIR", tmp_path)
+
+        with pytest.raises(ModelNotFoundError):
+            transcription.load_model("medium")

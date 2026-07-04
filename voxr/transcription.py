@@ -1,8 +1,24 @@
 import time
 import uuid
+from pathlib import Path
+
+from faster_whisper import WhisperModel
 
 from voxr.enums import ChunkStatus, TranscriptionStatus
 from voxr.models import ChunkResult, TranscriptionResult
+
+MODELS_DIR = Path.home() / ".local" / "share" / "voxr" / "models"
+
+
+class ModelNotFoundError(Exception):
+    pass
+
+
+def load_model(model_name: str) -> WhisperModel:
+    model_path = MODELS_DIR / f"{model_name}.bin"
+    if not model_path.exists():
+        raise ModelNotFoundError(f"Model '{model_name}' not found at {model_path}")
+    return WhisperModel(str(model_path), device="cpu", compute_type="int8")
 
 
 _MAX_RETRIES = 2
