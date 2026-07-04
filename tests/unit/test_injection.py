@@ -33,3 +33,27 @@ class TestInjectText:
         result = injection.inject_text("hello world")
 
         assert result is False
+
+
+class TestCopyToClipboard:
+    def test_copy_to_clipboard_uses_xclip_when_available(self, mocker):
+        mock_run = mocker.patch("voxr.injection.subprocess.run")
+
+        injection.copy_to_clipboard("hello world")
+
+        mock_run.assert_called_once_with(
+            ["xclip", "-selection", "clipboard"],
+            input="hello world",
+            text=True,
+            check=False,
+        )
+
+    def test_copy_to_clipboard_falls_back_to_xsel_when_xclip_not_found(self, mocker):
+        def run_side_effect(cmd, **kwargs):
+            if cmd[0] == "xclip":
+                raise FileNotFoundError
+            return MagicMock(returncode=0)
+
+        mocker.patch("voxr.injection.subprocess.run", side_effect=run_side_effect)
+
+        injection.copy_to_clipboard("hello world")
