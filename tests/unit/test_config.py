@@ -177,3 +177,64 @@ class TestConfigLoad:
         assert result.max_recording_seconds == constants.DEFAULT_MAX_SECONDS
         assert result.vad_enabled is True
         assert result.model_name == constants.DEFAULT_MODEL
+
+
+class TestConfigSave:
+    def _default_config(self):
+        from voxr.config import get_default
+        return get_default()
+
+    def test_save_persists_as_valid_json(self, tmp_path, monkeypatch):
+        import json
+
+        import voxr.config as config_module
+        monkeypatch.setattr(config_module, "CONFIG_FILE", tmp_path / "config.json")
+        config = self._default_config()
+        config_module.save(config)
+        raw = (tmp_path / "config.json").read_text()
+        parsed = json.loads(raw)
+        assert isinstance(parsed, dict)
+
+    def test_save_creates_parent_directory(self, tmp_path, monkeypatch):
+        import voxr.config as config_module
+        config_file = tmp_path / "nested" / "dir" / "config.json"
+        monkeypatch.setattr(config_module, "CONFIG_FILE", config_file)
+        config = self._default_config()
+        config_module.save(config)
+        assert config_file.exists()
+
+    def test_saved_file_can_be_read_back_with_load(self, tmp_path, monkeypatch):
+        import voxr.config as config_module
+        config_file = tmp_path / "config.json"
+        monkeypatch.setattr(config_module, "CONFIG_FILE", config_file)
+        config = self._default_config()
+        config.model_name = "small"
+        config_module.save(config)
+        loaded = config_module.load()
+        assert loaded.model_name == "small"
+
+    def test_save_uses_atomic_write(self, tmp_path, monkeypatch):
+        import voxr.config as config_module
+        config_file = tmp_path / "config.json"
+        monkeypatch.setattr(config_module, "CONFIG_FILE", config_file)
+        config = self._default_config()
+        config_module.save(config)
+        # tmp file should not exist after successful save
+        assert not (tmp_path / "config.tmp").exists()
+        assert config_file.exists()
+
+    def test_save_preserves_all_fields(self, tmp_path, monkeypatch):
+        import json
+
+        import voxr.config as config_module
+        config_file = tmp_path / "config.json"
+        monkeypatch.setattr(config_module, "CONFIG_FILE", config_file)
+        config = self._default_config()
+        config_module.save(config)
+        data = json.loads(config_file.read_text())
+        expected_keys = {
+            "hotkey", "input_mode", "model_name", "transcription_language",
+            "max_recording_seconds", "vad_enabled", "pipeline_mode_enabled",
+            "autostart_enabled", "interface_language", "first_run_complete",
+        }
+        assert expected_keys == set(data.keys())
