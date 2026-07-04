@@ -1,7 +1,5 @@
-from voxr.app import VoxrApp
-
-
 def main():
+    from voxr.app import VoxrApp
     VoxrApp().run()
 
 

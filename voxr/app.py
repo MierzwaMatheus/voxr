@@ -11,7 +11,7 @@ from voxr.widget import RecordingWidget
 
 
 class VoxrApp:
-    def __init__(self, config: Configuration, model) -> None:
+    def __init__(self, config: Configuration | None = None, model=None) -> None:
         self._config = config
         self._model = model
         self.state = AppState.IDLE
@@ -23,15 +23,18 @@ class VoxrApp:
             on_settings=lambda: None,
             on_quit=lambda: None,
         )
-        self._hotkey = HotkeyListener(
-            config=config,
-            callbacks=HotkeyCallbacks(
-                on_activate=self.on_hotkey_activate,
-                on_cancel=self.on_cancel,
-                on_ptt_start=lambda: None,
-                on_ptt_stop=lambda: None,
-            ),
-        )
+        if config is not None:
+            self._hotkey = HotkeyListener(
+                config=config,
+                callbacks=HotkeyCallbacks(
+                    on_activate=self.on_hotkey_activate,
+                    on_cancel=self.on_cancel,
+                    on_ptt_start=lambda: None,
+                    on_ptt_stop=lambda: None,
+                ),
+            )
+        else:
+            self._hotkey = None
 
     def on_hotkey_activate(self) -> None:
         if self.state == AppState.IDLE:
