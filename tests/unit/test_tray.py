@@ -32,6 +32,24 @@ class TestTrayIconShowNotification:
         assert tray._last_notification == "gravação finalizada"
 
 
+class TestTrayIconMenu:
+    def test_tray_accepts_on_settings_and_on_quit_callbacks(self):
+        on_settings = MagicMock()
+        on_quit = MagicMock()
+        tray = TrayIcon(on_settings=on_settings, on_quit=on_quit)
+        assert tray._on_settings is on_settings
+        assert tray._on_quit is on_quit
+
+    def test_tray_initial_state_is_idle(self):
+        tray = TrayIcon(on_settings=MagicMock(), on_quit=MagicMock())
+        assert tray._state == AppState.IDLE
+
+    def test_set_state_processing_marks_state(self):
+        tray = TrayIcon(on_settings=MagicMock(), on_quit=MagicMock())
+        tray.set_state(AppState.PROCESSING)
+        assert tray._state == AppState.PROCESSING
+
+
 class TestTrayIconSetState:
     def test_set_state_recording_marks_state_and_updates_indicator(self):
         tray = make_tray()
