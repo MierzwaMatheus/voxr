@@ -1,3 +1,4 @@
+import pytest
 
 from voxr import constants
 from voxr.enums import InputMode
@@ -59,3 +60,50 @@ class TestConfigurationDefaults:
 
     def test_model_name_default_is_allowed(self):
         assert constants.DEFAULT_MODEL in constants.ALLOWED_MODELS
+
+
+class TestConfigurationValidation:
+    def _make_config(self, **overrides):
+        defaults = {
+            "hotkey": constants.DEFAULT_HOTKEY,
+            "input_mode": InputMode.TOGGLE,
+            "model_name": constants.DEFAULT_MODEL,
+            "transcription_language": "auto",
+            "max_recording_seconds": constants.DEFAULT_MAX_SECONDS,
+            "vad_enabled": True,
+            "pipeline_mode_enabled": False,
+            "autostart_enabled": False,
+            "interface_language": "pt-BR",
+            "first_run_complete": False,
+        }
+        defaults.update(overrides)
+        return Configuration(**defaults)
+
+    def test_max_recording_seconds_below_30_raises(self):
+        with pytest.raises(ValueError):
+            self._make_config(max_recording_seconds=29)
+
+    def test_max_recording_seconds_above_180_raises(self):
+        with pytest.raises(ValueError):
+            self._make_config(max_recording_seconds=181)
+
+    def test_max_recording_seconds_at_30_is_valid(self):
+        config = self._make_config(max_recording_seconds=30)
+        assert config.max_recording_seconds == 30
+
+    def test_max_recording_seconds_at_180_is_valid(self):
+        config = self._make_config(max_recording_seconds=180)
+        assert config.max_recording_seconds == 180
+
+    def test_invalid_model_name_raises(self):
+        with pytest.raises(ValueError):
+            self._make_config(model_name="gpt-4")
+
+    def test_each_allowed_model_is_valid(self):
+        for model in constants.ALLOWED_MODELS:
+            config = self._make_config(model_name=model)
+            assert config.model_name == model
+
+    def test_empty_hotkey_raises(self):
+        with pytest.raises(ValueError):
+            self._make_config(hotkey="")

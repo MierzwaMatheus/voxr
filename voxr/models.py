@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from voxr.constants import ALLOWED_MODELS
 from voxr.enums import ChunkStatus, InputMode, SessionStatus, TranscriptionStatus
 
 
@@ -35,6 +36,14 @@ class Configuration:
     autostart_enabled: bool
     interface_language: str
     first_run_complete: bool
+
+    def __post_init__(self):
+        if not self.hotkey:
+            raise ValueError("hotkey must be a non-empty string")
+        if not (30 <= self.max_recording_seconds <= 180):
+            raise ValueError("max_recording_seconds must be between 30 and 180")
+        if self.model_name not in ALLOWED_MODELS:
+            raise ValueError(f"model_name must be one of {ALLOWED_MODELS}")
 
 
 @dataclass
