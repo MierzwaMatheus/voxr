@@ -95,3 +95,71 @@ class TestLifecycleMethods:
         listener.update_hotkey("<ctrl>+shift+r")
 
         assert listener._config.hotkey == "<ctrl>+shift+r"
+
+
+class TestToggleMode:
+    def _fire_hotkey(self, mock_cls):
+        hotkeys_map = mock_cls.call_args[0][0]
+        hotkeys_map["<alt>+v"]()
+
+    def test_first_press_calls_on_activate(self, mocker):
+        on_activate = MagicMock()
+        callbacks = HotkeyCallbacks(
+            on_activate=on_activate,
+            on_cancel=MagicMock(),
+            on_ptt_start=MagicMock(),
+            on_ptt_stop=MagicMock(),
+        )
+        mock_cls = mocker.patch("voxr.hotkey.keyboard.GlobalHotKeys")
+        listener = HotkeyListener(make_config(), callbacks)
+        listener.start()
+
+        self._fire_hotkey(mock_cls)
+
+        on_activate.assert_called_once()
+
+    def test_second_press_calls_on_activate_again(self, mocker):
+        on_activate = MagicMock()
+        callbacks = HotkeyCallbacks(
+            on_activate=on_activate,
+            on_cancel=MagicMock(),
+            on_ptt_start=MagicMock(),
+            on_ptt_stop=MagicMock(),
+        )
+        mock_cls = mocker.patch("voxr.hotkey.keyboard.GlobalHotKeys")
+        listener = HotkeyListener(make_config(), callbacks)
+        listener.start()
+
+        self._fire_hotkey(mock_cls)
+        self._fire_hotkey(mock_cls)
+
+        assert on_activate.call_count == 2
+
+
+class TestEscapeCancellation:
+    def _start_listener(self, mocker, on_cancel=None):
+        callbacks = HotkeyCallbacks(
+            on_activate=MagicMock(),
+            on_cancel=on_cancel or MagicMock(),
+            on_ptt_start=MagicMock(),
+            on_ptt_stop=MagicMock(),
+        )
+        mock_cls = mocker.patch("voxr.hotkey.keyboard.GlobalHotKeys")
+        listener = HotkeyListener(make_config(), callbacks)
+        listener.start()
+        return mock_cls.call_args[0][0], callbacks.on_cancel
+
+    def test_escape_calls_on_cancel(self, mocker):
+        hotkeys_map, on_cancel = self._start_listener(mocker)
+
+        hotkeys_map["<esc>"]()
+
+        on_cancel.assert_called_once()
+
+    def test_escape_calls_on_cancel_multiple_times(self, mocker):
+        hotkeys_map, on_cancel = self._start_listener(mocker)
+
+        hotkeys_map["<esc>"]()
+        hotkeys_map["<esc>"]()
+
+        assert on_cancel.call_count == 2
