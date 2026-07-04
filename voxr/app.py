@@ -69,6 +69,7 @@ class VoxrApp:
             self._session, self._stop_event, self._config.max_recording_seconds
         )
         self._audio_path = audio_path
+        self._session.audio_file_path = audio_path
         print(f"[voxr] áudio salvo: {audio_path}")
         # If recording ended by timeout (not by user pressing hotkey), trigger process.
         if self.state == AppState.RECORDING:
