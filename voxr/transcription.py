@@ -14,11 +14,18 @@ class ModelNotFoundError(Exception):
     pass
 
 
+_model_cache: dict = {}
+
+
 def load_model(model_name: str) -> WhisperModel:
+    if model_name in _model_cache:
+        return _model_cache[model_name]
     model_path = MODELS_DIR / f"{model_name}.bin"
     if not model_path.exists():
         raise ModelNotFoundError(f"Model '{model_name}' not found at {model_path}")
-    return WhisperModel(str(model_path), device="cpu", compute_type="int8")
+    model = WhisperModel(str(model_path), device="cpu", compute_type="int8")
+    _model_cache[model_name] = model
+    return model
 
 
 _MAX_RETRIES = 2

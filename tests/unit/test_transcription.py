@@ -118,6 +118,7 @@ class TestLoadModel:
         model_file.write_bytes(b"fake model")
         mocker.patch("voxr.transcription.MODELS_DIR", tmp_path)
         mocker.patch("voxr.transcription.WhisperModel", return_value=MagicMock())
+        transcription._model_cache.clear()
 
         result = transcription.load_model("medium")
 
@@ -125,6 +126,20 @@ class TestLoadModel:
 
     def test_raises_model_not_found_error_when_file_missing(self, tmp_path, mocker):
         mocker.patch("voxr.transcription.MODELS_DIR", tmp_path)
+        transcription._model_cache.clear()
 
         with pytest.raises(ModelNotFoundError):
             transcription.load_model("medium")
+
+    def test_returns_same_instance_on_repeated_calls(self, tmp_path, mocker):
+        model_file = tmp_path / "medium.bin"
+        model_file.write_bytes(b"fake model")
+        mocker.patch("voxr.transcription.MODELS_DIR", tmp_path)
+        mock_instance = MagicMock()
+        mocker.patch("voxr.transcription.WhisperModel", return_value=mock_instance)
+        transcription._model_cache.clear()
+
+        first = transcription.load_model("medium")
+        second = transcription.load_model("medium")
+
+        assert first is second
