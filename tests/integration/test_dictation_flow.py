@@ -1,13 +1,12 @@
 """Integration tests for VoxrApp dictation flows."""
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 # Stub pynput/GTK so tests run without X11/display
 if "pynput" not in sys.modules:
     sys.modules["pynput"] = MagicMock()
     sys.modules["pynput.keyboard"] = MagicMock()
 
-import pytest
 
 from voxr.app import VoxrApp
 from voxr.enums import AppState, InputMode
@@ -42,7 +41,7 @@ class TestFullDictationFlow:
         mock_model = MagicMock()
 
         mocker.patch("voxr.app.audio.record", return_value=FAKE_AUDIO_PATH)
-        mock_transcribe = mocker.patch(
+        mocker.patch(
             "voxr.app.transcription.transcribe_session",
             return_value=MagicMock(full_text=FAKE_TRANSCRIBED_TEXT),
         )
@@ -206,7 +205,7 @@ class TestVoxrAppInit:
         """VoxrApp cria um HotkeyListener com o config fornecido."""
         mock_listener_cls = mocker.patch("voxr.app.HotkeyListener")
         config = make_config()
-        app = VoxrApp(config=config, model=MagicMock())
+        VoxrApp(config=config, model=MagicMock())
         mock_listener_cls.assert_called_once()
         call_args = mock_listener_cls.call_args
         passed_config = call_args[1].get("config") or call_args[0][0]
@@ -216,7 +215,7 @@ class TestVoxrAppInit:
         """VoxrApp cria um TrayIcon."""
         mocker.patch("voxr.app.HotkeyListener")
         mock_tray_cls = mocker.patch("voxr.app.TrayIcon")
-        app = VoxrApp(config=make_config(), model=MagicMock())
+        VoxrApp(config=make_config(), model=MagicMock())
         mock_tray_cls.assert_called_once()
 
     def test_init_creates_recording_widget(self, mocker):
@@ -224,7 +223,7 @@ class TestVoxrAppInit:
         mocker.patch("voxr.app.HotkeyListener")
         mocker.patch("voxr.app.TrayIcon")
         mock_widget_cls = mocker.patch("voxr.app.RecordingWidget")
-        app = VoxrApp(config=make_config(), model=MagicMock())
+        VoxrApp(config=make_config(), model=MagicMock())
         mock_widget_cls.assert_called_once()
 
 

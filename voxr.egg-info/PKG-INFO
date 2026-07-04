@@ -1,0 +1,33 @@
+Metadata-Version: 2.4
+Name: voxr
+Version: 0.1.0.dev0
+Summary: Voxr — offline voice dictation for Linux
+Author-email: Matheus Oliveira <mierzwa.oliveira@gmail.com>
+License: MIT
+Project-URL: Documentation, https://github.com/yourusername/voxr
+Project-URL: Repository, https://github.com/yourusername/voxr
+Project-URL: Issues, https://github.com/yourusername/voxr/issues
+Keywords: voice,dictation,offline,whisper,linux
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: X11 Applications :: GTK
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Multimedia :: Sound/Audio :: Speech
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: faster-whisper>=1.0.0
+Requires-Dist: sounddevice>=0.4.5
+Requires-Dist: pynput>=1.7.6
+Requires-Dist: PyGObject>=3.42.0
+Requires-Dist: huggingface-hub>=0.21.0
+Requires-Dist: soundfile>=0.12.1
+Requires-Dist: numpy>=1.24.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: pytest-mock>=3.11.0; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"

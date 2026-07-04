@@ -1,5 +1,5 @@
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 
 def test_main_instantiates_voxr_app_and_calls_run(mocker):

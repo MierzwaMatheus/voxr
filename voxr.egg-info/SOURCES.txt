@@ -1,0 +1,7 @@
+pyproject.toml
+voxr/__init__.py
+voxr.egg-info/PKG-INFO
+voxr.egg-info/SOURCES.txt
+voxr.egg-info/dependency_links.txt
+voxr.egg-info/requires.txt
+voxr.egg-info/top_level.txt
