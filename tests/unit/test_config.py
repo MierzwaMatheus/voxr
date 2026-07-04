@@ -107,3 +107,73 @@ class TestConfigurationValidation:
     def test_empty_hotkey_raises(self):
         with pytest.raises(ValueError):
             self._make_config(hotkey="")
+
+
+class TestConfigLoad:
+    def test_load_returns_configuration(self, tmp_path, monkeypatch):
+        import voxr.config as config_module
+        monkeypatch.setattr(config_module, "CONFIG_FILE", tmp_path / "config.json")
+        result = config_module.load()
+        assert isinstance(result, Configuration)
+
+    def test_load_creates_file_with_defaults_when_absent(self, tmp_path, monkeypatch):
+        import voxr.config as config_module
+        config_file = tmp_path / "config.json"
+        monkeypatch.setattr(config_module, "CONFIG_FILE", config_file)
+        config_module.load()
+        assert config_file.exists()
+
+    def test_load_reads_existing_file(self, tmp_path, monkeypatch):
+        import json
+
+        import voxr.config as config_module
+        config_file = tmp_path / "config.json"
+        monkeypatch.setattr(config_module, "CONFIG_FILE", config_file)
+        data = {
+            "hotkey": "<ctrl>+d",
+            "input_mode": "toggle",
+            "model_name": "small",
+            "transcription_language": "pt",
+            "max_recording_seconds": 90,
+            "vad_enabled": False,
+            "pipeline_mode_enabled": False,
+            "autostart_enabled": False,
+            "interface_language": "pt-BR",
+            "first_run_complete": True,
+        }
+        config_file.write_text(json.dumps(data))
+        result = config_module.load()
+        assert result.model_name == "small"
+        assert result.max_recording_seconds == 90
+        assert result.vad_enabled is False
+
+    def test_load_never_raises_file_not_found(self, tmp_path, monkeypatch):
+        import voxr.config as config_module
+        monkeypatch.setattr(config_module, "CONFIG_FILE", tmp_path / "nonexistent.json")
+        try:
+            config_module.load()
+        except FileNotFoundError:
+            pytest.fail("load() raised FileNotFoundError")
+
+    def test_load_never_raises_json_decode_error(self, tmp_path, monkeypatch):
+        import voxr.config as config_module
+        config_file = tmp_path / "config.json"
+        config_file.write_text("{ invalid json !!!")
+        monkeypatch.setattr(config_module, "CONFIG_FILE", config_file)
+        try:
+            config_module.load()
+        except Exception as e:
+            if "JSONDecodeError" in type(e).__name__:
+                pytest.fail("load() raised JSONDecodeError")
+
+    def test_get_default_returns_configuration(self):
+        import voxr.config as config_module
+        result = config_module.get_default()
+        assert isinstance(result, Configuration)
+
+    def test_get_default_has_expected_defaults(self):
+        import voxr.config as config_module
+        result = config_module.get_default()
+        assert result.max_recording_seconds == constants.DEFAULT_MAX_SECONDS
+        assert result.vad_enabled is True
+        assert result.model_name == constants.DEFAULT_MODEL
