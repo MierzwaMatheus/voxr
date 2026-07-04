@@ -2,7 +2,7 @@ import json
 
 from voxr import constants
 from voxr.enums import AppState, ChunkStatus, InputMode, SessionStatus, TranscriptionStatus
-from voxr.models import ChunkResult
+from voxr.models import ChunkResult, RecordingSession
 
 
 class TestEnumSerialization:
@@ -113,3 +113,58 @@ class TestChunkResult:
     def test_chunk_retry_count_default(self):
         chunk = self._make_chunk(retry_count=0)
         assert chunk.retry_count == 0
+
+
+class TestRecordingSession:
+    def _make_session(self, **kwargs):
+        defaults = {
+            "session_id": "sess-001",
+            "start_time": 1000.0,
+            "end_time": None,
+            "duration_seconds": 0.0,
+            "input_mode": InputMode.TOGGLE,
+            "audio_file_path": "/tmp/sess-001.wav",
+            "status": SessionStatus.IN_PROGRESS,
+        }
+        defaults.update(kwargs)
+        return RecordingSession(**defaults)
+
+    def test_session_starts_with_in_progress_status(self):
+        session = self._make_session()
+        assert session.status == SessionStatus.IN_PROGRESS
+
+    def test_end_time_is_none_while_in_progress(self):
+        session = self._make_session()
+        assert session.end_time is None
+
+    def test_status_can_change_to_completed(self):
+        session = self._make_session()
+        session.status = SessionStatus.COMPLETED
+        assert session.status == SessionStatus.COMPLETED
+
+    def test_status_can_change_to_cancelled(self):
+        session = self._make_session()
+        session.status = SessionStatus.CANCELLED
+        assert session.status == SessionStatus.CANCELLED
+
+    def test_end_time_set_on_completion(self):
+        session = self._make_session()
+        session.status = SessionStatus.COMPLETED
+        session.end_time = 1030.0
+        assert session.end_time == 1030.0
+
+    def test_end_time_remains_none_while_in_progress(self):
+        session = self._make_session(status=SessionStatus.IN_PROGRESS)
+        assert session.end_time is None
+
+    def test_session_has_session_id(self):
+        session = self._make_session(session_id="abc-uuid-123")
+        assert session.session_id == "abc-uuid-123"
+
+    def test_session_input_mode_toggle(self):
+        session = self._make_session(input_mode=InputMode.TOGGLE)
+        assert session.input_mode == InputMode.TOGGLE
+
+    def test_session_input_mode_ptt(self):
+        session = self._make_session(input_mode=InputMode.PTT)
+        assert session.input_mode == InputMode.PTT
