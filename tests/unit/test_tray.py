@@ -9,8 +9,8 @@ sys.modules.setdefault("gi.repository.AppIndicator3", gi_mock.repository.AppIndi
 sys.modules.setdefault("gi.repository.Gtk", gi_mock.repository.Gtk)
 sys.modules.setdefault("gi.repository.Notify", gi_mock.repository.Notify)
 
-from voxr.enums import AppState
-from voxr.tray import TrayIcon
+from voxr.enums import AppState  # noqa: E402
+from voxr.tray import TrayIcon  # noqa: E402
 
 
 def make_tray() -> TrayIcon:

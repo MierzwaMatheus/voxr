@@ -10,7 +10,7 @@ sys.modules.setdefault("gi.repository.Gdk", gi_mock.repository.Gdk)
 sys.modules.setdefault("gi.repository.GLib", gi_mock.repository.GLib)
 sys.modules.setdefault("gi.repository.cairo", gi_mock.repository.cairo)
 
-from voxr.widget import RecordingWidget
+from voxr.widget import RecordingWidget  # noqa: E402
 
 
 def make_widget() -> RecordingWidget:
