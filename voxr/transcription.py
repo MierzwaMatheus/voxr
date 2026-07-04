@@ -33,7 +33,6 @@ _PLACEHOLDER_TEXT = "[transcrição indisponível]"
 
 
 def transcribe(audio_path: str, model, language: str = "auto", vad_filter: bool = True) -> ChunkResult:
-    last_exc = None
     for attempt in range(_MAX_RETRIES + 1):
         try:
             segments, _ = model.transcribe(audio_path, language=language, vad_filter=vad_filter)
@@ -46,8 +45,8 @@ def transcribe(audio_path: str, model, language: str = "auto", vad_filter: bool 
                 retry_count=attempt,
                 status=ChunkStatus.SUCCESS,
             )
-        except Exception as exc:
-            last_exc = exc
+        except Exception:
+            pass
 
     return ChunkResult(
         chunk_id=str(uuid.uuid4()),
