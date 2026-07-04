@@ -105,3 +105,45 @@ class TestCancelFlow:
         app = VoxrApp(config=config, model=mock_model)
         app.on_cancel()
         assert app.state == AppState.IDLE
+
+
+class TestClipboardFallback:
+    """T059 — quando inject_text falha, copia para clipboard (FR-003)."""
+
+    def test_clipboard_used_when_inject_fails(self, mocker):
+        """Se inject_text() retorna False, copy_to_clipboard() é chamado com o texto."""
+        config = make_config()
+        mock_model = MagicMock()
+
+        mocker.patch("voxr.app.audio.record", return_value=FAKE_AUDIO_PATH)
+        mocker.patch(
+            "voxr.app.transcription.transcribe_session",
+            return_value=MagicMock(full_text=FAKE_TRANSCRIBED_TEXT),
+        )
+        mocker.patch("voxr.app.injection.inject_text", return_value=False)
+        mock_clipboard = mocker.patch("voxr.app.injection.copy_to_clipboard")
+
+        app = VoxrApp(config=config, model=mock_model)
+        app.on_hotkey_activate()  # IDLE → RECORDING
+        app.on_hotkey_activate()  # RECORDING → PROCESSING → IDLE
+
+        mock_clipboard.assert_called_once_with(FAKE_TRANSCRIBED_TEXT)
+
+    def test_clipboard_not_used_when_inject_succeeds(self, mocker):
+        """Se inject_text() retorna True, copy_to_clipboard() não é chamado."""
+        config = make_config()
+        mock_model = MagicMock()
+
+        mocker.patch("voxr.app.audio.record", return_value=FAKE_AUDIO_PATH)
+        mocker.patch(
+            "voxr.app.transcription.transcribe_session",
+            return_value=MagicMock(full_text=FAKE_TRANSCRIBED_TEXT),
+        )
+        mocker.patch("voxr.app.injection.inject_text", return_value=True)
+        mock_clipboard = mocker.patch("voxr.app.injection.copy_to_clipboard")
+
+        app = VoxrApp(config=config, model=mock_model)
+        app.on_hotkey_activate()
+        app.on_hotkey_activate()
+
+        mock_clipboard.assert_not_called()

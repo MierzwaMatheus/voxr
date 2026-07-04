@@ -45,7 +45,8 @@ class VoxrApp:
             self._stop_event.set()
 
         result = transcription.transcribe_session(self._session, self._model, self._config)
-        injection.inject_text(result.full_text)
+        if not injection.inject_text(result.full_text):
+            injection.copy_to_clipboard(result.full_text)
         self.state = AppState.IDLE
 
     def on_cancel(self) -> None:
