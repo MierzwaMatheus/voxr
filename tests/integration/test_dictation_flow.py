@@ -190,3 +190,39 @@ class TestMaxDurationTimeout:
         app.on_timeout()
 
         assert app.state == AppState.IDLE
+
+
+class TestVoxrAppInit:
+    """T061 — VoxrApp.__init__ inicializa todos os componentes (config, model, hotkey, tray, widget)."""
+
+    def test_init_stores_config_and_model(self):
+        config = make_config()
+        mock_model = MagicMock()
+        app = VoxrApp(config=config, model=mock_model)
+        assert app._config is config
+        assert app._model is mock_model
+
+    def test_init_creates_hotkey_listener(self, mocker):
+        """VoxrApp cria um HotkeyListener com o config fornecido."""
+        mock_listener_cls = mocker.patch("voxr.app.HotkeyListener")
+        config = make_config()
+        app = VoxrApp(config=config, model=MagicMock())
+        mock_listener_cls.assert_called_once()
+        call_args = mock_listener_cls.call_args
+        passed_config = call_args[1].get("config") or call_args[0][0]
+        assert passed_config is config
+
+    def test_init_creates_tray_icon(self, mocker):
+        """VoxrApp cria um TrayIcon."""
+        mocker.patch("voxr.app.HotkeyListener")
+        mock_tray_cls = mocker.patch("voxr.app.TrayIcon")
+        app = VoxrApp(config=make_config(), model=MagicMock())
+        mock_tray_cls.assert_called_once()
+
+    def test_init_creates_recording_widget(self, mocker):
+        """VoxrApp cria um RecordingWidget."""
+        mocker.patch("voxr.app.HotkeyListener")
+        mocker.patch("voxr.app.TrayIcon")
+        mock_widget_cls = mocker.patch("voxr.app.RecordingWidget")
+        app = VoxrApp(config=make_config(), model=MagicMock())
+        mock_widget_cls.assert_called_once()

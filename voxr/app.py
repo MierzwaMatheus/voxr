@@ -1,8 +1,13 @@
 import threading
+import time
+import uuid
 
 from voxr import audio, injection, transcription
-from voxr.enums import AppState
-from voxr.models import Configuration
+from voxr.enums import AppState, InputMode, SessionStatus
+from voxr.hotkey import HotkeyCallbacks, HotkeyListener
+from voxr.models import Configuration, RecordingSession
+from voxr.tray import TrayIcon
+from voxr.widget import RecordingWidget
 
 
 class VoxrApp:
@@ -11,7 +16,22 @@ class VoxrApp:
         self._model = model
         self.state = AppState.IDLE
         self._stop_event: threading.Event | None = None
-        self._session = None
+        self._session: RecordingSession | None = None
+
+        self._widget = RecordingWidget()
+        self._tray = TrayIcon(
+            on_settings=lambda: None,
+            on_quit=lambda: None,
+        )
+        self._hotkey = HotkeyListener(
+            config=config,
+            callbacks=HotkeyCallbacks(
+                on_activate=self.on_hotkey_activate,
+                on_cancel=self.on_cancel,
+                on_ptt_start=lambda: None,
+                on_ptt_stop=lambda: None,
+            ),
+        )
 
     def on_hotkey_activate(self) -> None:
         if self.state == AppState.IDLE:
@@ -20,12 +40,6 @@ class VoxrApp:
             self._stop_and_process()
 
     def _start_recording(self) -> None:
-        import time
-        import uuid
-
-        from voxr.enums import InputMode, SessionStatus
-        from voxr.models import RecordingSession
-
         self.state = AppState.RECORDING
         self._stop_event = threading.Event()
         self._session = RecordingSession(
