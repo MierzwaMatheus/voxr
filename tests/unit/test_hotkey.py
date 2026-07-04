@@ -1,19 +1,14 @@
 import sys
-from dataclasses import dataclass
-from typing import Callable
-from unittest.mock import MagicMock, patch, call
-
-import pytest
+from unittest.mock import MagicMock
 
 # Stub pynput so tests run without X11
 if "pynput" not in sys.modules:
     sys.modules["pynput"] = MagicMock()
     sys.modules["pynput.keyboard"] = MagicMock()
 
-from voxr.hotkey import HotkeyListener, HotkeyCallbacks
-from voxr.models import Configuration
 from voxr.enums import InputMode
-from voxr.constants import ALLOWED_MODELS
+from voxr.hotkey import HotkeyCallbacks, HotkeyListener
+from voxr.models import Configuration
 
 
 def make_config(hotkey: str = "<alt>+v") -> Configuration:
@@ -66,3 +61,37 @@ class TestOnActivateCallback:
 
         assert mock_instance.daemon is True
         mock_instance.start.assert_called_once()
+
+
+class TestLifecycleMethods:
+    def _make_listener(self, mocker, hotkey: str = "<alt>+v"):
+        callbacks = HotkeyCallbacks(
+            on_activate=MagicMock(),
+            on_cancel=MagicMock(),
+            on_ptt_start=MagicMock(),
+            on_ptt_stop=MagicMock(),
+        )
+        mock_cls = mocker.patch("voxr.hotkey.keyboard.GlobalHotKeys")
+        listener = HotkeyListener(make_config(hotkey), callbacks)
+        return listener, mock_cls.return_value
+
+    def test_stop_joins_thread_after_stopping(self, mocker):
+        listener, mock_instance = self._make_listener(mocker)
+        listener.start()
+        listener.stop()
+
+        mock_instance.stop.assert_called_once()
+        mock_instance.join.assert_called_once()
+
+    def test_stop_before_start_does_nothing(self, mocker):
+        listener, mock_instance = self._make_listener(mocker)
+        listener.stop()  # must not raise
+
+        mock_instance.stop.assert_not_called()
+        mock_instance.join.assert_not_called()
+
+    def test_update_hotkey_changes_configured_hotkey(self, mocker):
+        listener, _ = self._make_listener(mocker, hotkey="<alt>+v")
+        listener.update_hotkey("<ctrl>+shift+r")
+
+        assert listener._config.hotkey == "<ctrl>+shift+r"
