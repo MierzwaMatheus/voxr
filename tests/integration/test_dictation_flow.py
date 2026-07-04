@@ -283,3 +283,35 @@ class TestStateMachine:
         app.on_hotkey_activate()
 
         mock_widget.hide.assert_called_once()
+
+
+class TestCleanCancel:
+    """T063 — on_cancel() fecha widget sem inserir texto (FR-006)."""
+
+    def test_cancel_hides_widget(self, mocker):
+        """on_cancel() durante gravação chama widget.hide()."""
+        mocker.patch("voxr.app.audio.record", return_value=FAKE_AUDIO_PATH)
+        mock_widget = MagicMock()
+        mocker.patch("voxr.app.RecordingWidget", return_value=mock_widget)
+        mocker.patch("voxr.app.HotkeyListener")
+        mocker.patch("voxr.app.TrayIcon")
+
+        app = VoxrApp(config=make_config(), model=MagicMock())
+        app.on_hotkey_activate()
+        app.on_cancel()
+
+        mock_widget.hide.assert_called_once()
+
+    def test_cancel_does_not_insert_text(self, mocker):
+        """on_cancel() não chama insert_or_clipboard."""
+        mocker.patch("voxr.app.audio.record", return_value=FAKE_AUDIO_PATH)
+        mock_insert = mocker.patch("voxr.app.injection.insert_or_clipboard")
+        mocker.patch("voxr.app.RecordingWidget")
+        mocker.patch("voxr.app.HotkeyListener")
+        mocker.patch("voxr.app.TrayIcon")
+
+        app = VoxrApp(config=make_config(), model=MagicMock())
+        app.on_hotkey_activate()
+        app.on_cancel()
+
+        mock_insert.assert_not_called()

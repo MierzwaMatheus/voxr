@@ -74,6 +74,7 @@ class VoxrApp:
         if self._stop_event:
             self._stop_event.set()
         self._session = None
+        self._widget.hide()
         self.state = AppState.IDLE
 
     def run(self) -> None:
