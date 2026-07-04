@@ -39,14 +39,53 @@ def record(session, stop_event: threading.Event, max_seconds: int = 60) -> str:
 
 def is_microphone_available() -> bool:
     """True se pelo menos um dispositivo de input está disponível."""
-    raise NotImplementedError
+    import sounddevice as sd
+
+    try:
+        devices = sd.query_devices()
+        return any(d.get("max_input_channels", 0) > 0 for d in devices)
+    except Exception:
+        return False
 
 
 def list_devices() -> list[str]:
     """Retorna nomes dos dispositivos de áudio de input disponíveis."""
-    raise NotImplementedError
+    import sounddevice as sd
+
+    devices = sd.query_devices()
+    return [d["name"] for d in devices if d.get("max_input_channels", 0) > 0]
 
 
 def get_audio_level(callback: Callable[[float], None]):
     """Stream de monitoramento de nível de áudio. Caller fecha o stream."""
     raise NotImplementedError
+
+
+def cleanup_old_recordings(
+    recordings_dir: Path = RECORDINGS_DIR,
+    max_age_seconds: int = 86400,
+) -> None:
+    """Deleta arquivos WAV com mtime superior a max_age_seconds."""
+    if not recordings_dir.exists():
+        return
+    cutoff = time.time() - max_age_seconds
+    for f in recordings_dir.iterdir():
+        if f.is_file() and f.stat().st_mtime < cutoff:
+            f.unlink(missing_ok=True)
+
+
+def start_cache_cleanup_daemon(
+    recordings_dir: Path = RECORDINGS_DIR,
+    max_age_seconds: int = 86400,
+    interval_seconds: int = 3600,
+) -> threading.Thread:
+    """Inicia thread daemon que limpa gravações antigas a cada interval_seconds."""
+
+    def _run():
+        while True:
+            cleanup_old_recordings(recordings_dir=recordings_dir, max_age_seconds=max_age_seconds)
+            time.sleep(interval_seconds)
+
+    t = threading.Thread(target=_run, daemon=True, name="voxr-cache-cleanup")
+    t.start()
+    return t
