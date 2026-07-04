@@ -147,3 +147,46 @@ class TestClipboardFallback:
         app.on_hotkey_activate()
 
         mock_clipboard.assert_not_called()
+
+
+class TestMaxDurationTimeout:
+    """T060 — gravação para automaticamente ao atingir max_recording_seconds (FR-007)."""
+
+    def test_timeout_triggers_transcription_and_inject(self, mocker):
+        """Quando audio.record retorna (timeout), app processa e injeta normalmente."""
+        config = make_config()
+        mock_model = MagicMock()
+
+        mocker.patch("voxr.app.audio.record", return_value=FAKE_AUDIO_PATH)
+        mocker.patch(
+            "voxr.app.transcription.transcribe_session",
+            return_value=MagicMock(full_text=FAKE_TRANSCRIBED_TEXT),
+        )
+        mock_inject = mocker.patch("voxr.app.injection.inject_text", return_value=True)
+
+        app = VoxrApp(config=config, model=mock_model)
+        app.on_hotkey_activate()  # inicia gravação; audio.record retorna imediatamente (mock)
+
+        # Simula timeout: app deve detectar que record finalizou e processar
+        app.on_timeout()
+
+        mock_inject.assert_called_once_with(FAKE_TRANSCRIBED_TEXT)
+        assert app.state == AppState.IDLE
+
+    def test_timeout_state_goes_idle(self, mocker):
+        """Após timeout, estado final é IDLE."""
+        config = make_config()
+        mock_model = MagicMock()
+
+        mocker.patch("voxr.app.audio.record", return_value=FAKE_AUDIO_PATH)
+        mocker.patch(
+            "voxr.app.transcription.transcribe_session",
+            return_value=MagicMock(full_text=FAKE_TRANSCRIBED_TEXT),
+        )
+        mocker.patch("voxr.app.injection.inject_text", return_value=True)
+
+        app = VoxrApp(config=config, model=mock_model)
+        app.on_hotkey_activate()
+        app.on_timeout()
+
+        assert app.state == AppState.IDLE

@@ -49,6 +49,10 @@ class VoxrApp:
             injection.copy_to_clipboard(result.full_text)
         self.state = AppState.IDLE
 
+    def on_timeout(self) -> None:
+        if self.state == AppState.RECORDING:
+            self._stop_and_process()
+
     def on_cancel(self) -> None:
         if self.state != AppState.RECORDING:
             return
