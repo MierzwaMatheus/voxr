@@ -6,7 +6,7 @@ MODEL_DIR = Path.home() / ".local" / "share" / "voxr" / "models"
 
 PLACEHOLDER_TEXT = "[trecho não transcrito]"
 
-DEFAULT_HOTKEY = "<alt>v"
+DEFAULT_HOTKEY = "<alt>+v"
 DEFAULT_MODEL = "base"
 DEFAULT_MAX_SECONDS = 60
 
