@@ -38,7 +38,13 @@ def transcribe(audio_path: str, model, language: str = "auto", vad_filter: bool 
     last_exc: Exception | None = None
     for attempt in range(_MAX_RETRIES + 1):
         try:
-            segments, _ = model.transcribe(audio_path, language=lang, vad_filter=vad_filter)
+            segments, _ = model.transcribe(
+                audio_path,
+                language=lang,
+                vad_filter=vad_filter,
+                beam_size=5,
+                word_timestamps=False,
+            )
             text = "".join(s.text for s in segments)
             return ChunkResult(
                 chunk_id=str(uuid.uuid4()),

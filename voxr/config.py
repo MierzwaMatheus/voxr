@@ -18,7 +18,7 @@ def get_default() -> Configuration:
         hotkey=DEFAULT_HOTKEY,
         input_mode=InputMode.TOGGLE,
         model_name=DEFAULT_MODEL,
-        transcription_language="auto",
+        transcription_language="pt",
         max_recording_seconds=DEFAULT_MAX_SECONDS,
         vad_enabled=True,
         pipeline_mode_enabled=False,

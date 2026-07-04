@@ -158,7 +158,12 @@ class VoxrApp:
             except ModelNotFoundError:
                 print(f"[voxr] Baixando modelo '{self._config.model_name}'…")
                 self._model = WhisperModel(
-                    self._config.model_name, device="cpu", compute_type="int8"
+                    self._config.model_name,
+                    device="cpu",
+                    compute_type="int8",
+                    # Limit to half the cores so the system stays responsive during transcription.
+                    cpu_threads=max(2, __import__("os").cpu_count() // 2),
+                    num_workers=1,
                 )
 
         # Warn if no microphone is detected.
