@@ -6,11 +6,15 @@ def inject_text(text: str) -> bool:
     Retorna True se sucesso, False se xdotool não disponível ou falhou."""
     try:
         result = subprocess.run(
-            ["xdotool", "type", "--clearmodifiers", "--", text],
+            # --clearmodifiers: releases active modifier keys (e.g. Alt from the hotkey)
+            # before typing, otherwise they leak and produce wrong characters.
+            # --: prevents text starting with '-' from being parsed as a flag.
+            ["xdotool", "type", "--clearmodifiers", "--delay", "20", "--", text],
             check=False,
+            timeout=10,
         )
         return result.returncode == 0
-    except FileNotFoundError:
+    except (FileNotFoundError, subprocess.TimeoutExpired):
         return False
 
 
@@ -23,13 +27,18 @@ def copy_to_clipboard(text: str) -> None:
             text=True,
             check=False,
         )
+        return
     except FileNotFoundError:
+        pass
+    try:
         subprocess.run(
             ["xsel", "--clipboard", "--input"],
             input=text,
             text=True,
             check=False,
         )
+    except FileNotFoundError:
+        pass
 
 
 def insert_or_clipboard(text: str) -> str:

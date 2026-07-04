@@ -33,9 +33,18 @@ _PLACEHOLDER_TEXT = "[transcrição indisponível]"
 
 
 def transcribe(audio_path: str, model, language: str = "auto", vad_filter: bool = True) -> ChunkResult:
+    # faster-whisper uses None for auto-detect, not the string "auto".
+    lang = None if language == "auto" else language
+    last_exc: Exception | None = None
     for attempt in range(_MAX_RETRIES + 1):
         try:
-            segments, _ = model.transcribe(audio_path, language=language, vad_filter=vad_filter)
+            segments, _ = model.transcribe(
+                audio_path,
+                language=lang,
+                vad_filter=vad_filter,
+                beam_size=5,
+                word_timestamps=False,
+            )
             text = "".join(s.text for s in segments)
             return ChunkResult(
                 chunk_id=str(uuid.uuid4()),
@@ -45,8 +54,9 @@ def transcribe(audio_path: str, model, language: str = "auto", vad_filter: bool 
                 retry_count=attempt,
                 status=ChunkStatus.SUCCESS,
             )
-        except Exception:
-            pass
+        except Exception as e:
+            last_exc = e
+    print(f"[voxr] transcription failed after {_MAX_RETRIES + 1} attempts: {last_exc}")
 
     return ChunkResult(
         chunk_id=str(uuid.uuid4()),

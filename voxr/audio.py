@@ -30,7 +30,7 @@ def record(session, stop_event: threading.Event, max_seconds: int = 60) -> str:
         while not stop_event.is_set():
             if time.time() - start >= max_seconds:
                 break
-            time.sleep(0.05)
+            time.sleep(0.05)  # 50ms: low CPU cost, ≤50ms stop latency
 
     audio_data = np.concatenate(frames, axis=0) if frames else np.zeros((1, _CHANNELS), dtype=_DTYPE)
     sf.write(audio_path, audio_data, _SAMPLE_RATE)

@@ -11,8 +11,9 @@ class TestInjectText:
         result = injection.inject_text("hello world")
 
         mock_run.assert_called_once_with(
-            ["xdotool", "type", "--clearmodifiers", "--", "hello world"],
+            ["xdotool", "type", "--clearmodifiers", "--delay", "20", "--", "hello world"],
             check=False,
+            timeout=10,
         )
         assert result is True
 

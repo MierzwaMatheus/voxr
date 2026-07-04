@@ -33,6 +33,8 @@ class RecordingWidget:
     def show_processing(self) -> None:
         self._mode = "processing"
         if _HAS_GTK and self._window:
+            if hasattr(self, "_label"):
+                self._label.set_text("⟳ Transcrevendo…")
             self._window.queue_draw()
 
     def hide(self) -> None:
@@ -55,6 +57,14 @@ class RecordingWidget:
         self._window = Gtk.Window(type=Gtk.WindowType.POPUP)
         self._window.set_decorated(False)
         self._window.set_keep_above(True)
+
+        self._label = Gtk.Label(label="● Gravando…")
+        self._label.set_margin_start(14)
+        self._label.set_margin_end(14)
+        self._label.set_margin_top(10)
+        self._label.set_margin_bottom(10)
+        self._window.add(self._label)
+
         try:
             display = Gdk.Display.get_default()
             if display:

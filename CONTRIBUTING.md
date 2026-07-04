@@ -31,3 +31,14 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/): `type(scope
 ## Branch naming
 
 `feature/<issue-number>-<short-description>`
+
+## PR checklist
+
+Before opening a pull request, verify all items below pass locally:
+
+- [ ] `pytest tests/unit/ -v` — zero failures
+- [ ] `pytest --cov=voxr --cov-fail-under=80` — coverage ≥ 80%
+- [ ] `ruff check voxr/ tests/` — zero lint errors
+- [ ] New behavior is covered by at least one unit test
+- [ ] No commented-out code or debug prints left behind
+- [ ] Commit messages follow Conventional Commits
