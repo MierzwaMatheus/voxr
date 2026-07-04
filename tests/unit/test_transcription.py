@@ -36,3 +36,25 @@ class TestTranscribe:
             assert False, "transcribe() should never raise an exception"
 
         assert isinstance(result, ChunkResult)
+
+    def test_returns_success_when_model_fails_once_then_succeeds(self, mocker):
+        mock_segment = MagicMock()
+        mock_segment.text = "recovered text"
+        mock_model = MagicMock()
+        mock_model.transcribe.side_effect = [
+            RuntimeError("first failure"),
+            ([mock_segment], MagicMock()),
+        ]
+
+        result = transcription.transcribe("audio.wav", mock_model)
+
+        assert result.status == ChunkStatus.SUCCESS
+        assert result.text == "recovered text"
+
+    def test_retry_count_equals_2_when_all_attempts_fail(self, mocker):
+        mock_model = MagicMock()
+        mock_model.transcribe.side_effect = RuntimeError("always fails")
+
+        result = transcription.transcribe("audio.wav", mock_model)
+
+        assert result.retry_count == 2
