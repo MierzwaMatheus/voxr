@@ -64,16 +64,19 @@ class VoxrApp:
 
     def _record_loop(self) -> None:
         # Runs in recording thread; audio.record() blocks until stop_event or timeout.
+        print("[voxr] gravando…")
         audio_path = audio.record(
             self._session, self._stop_event, self._config.max_recording_seconds
         )
         self._audio_path = audio_path
+        print(f"[voxr] áudio salvo: {audio_path}")
         # If recording ended by timeout (not by user pressing hotkey), trigger process.
         if self.state == AppState.RECORDING:
             self._do_process()
 
     def _stop_and_process(self) -> None:
         from gi.repository import GLib
+        print("[voxr] parando gravação…")
         self.state = AppState.PROCESSING
         if self._stop_event:
             self._stop_event.set()
@@ -92,8 +95,11 @@ class VoxrApp:
         from gi.repository import GLib
         if self._session is None:
             return
+        print("[voxr] transcrevendo…")
         result = transcription.transcribe_session(self._session, self._model, self._config)
-        injection.insert_or_clipboard(result.full_text)
+        print(f"[voxr] texto: {result.full_text!r}")
+        mode = injection.insert_or_clipboard(result.full_text)
+        print(f"[voxr] inserido via {mode}")
         GLib.idle_add(self._widget.hide)
         GLib.idle_add(self._tray.set_state, AppState.IDLE)
         self.state = AppState.IDLE

@@ -9,11 +9,12 @@ def inject_text(text: str) -> bool:
             # --clearmodifiers: releases active modifier keys (e.g. Alt from the hotkey)
             # before typing, otherwise they leak and produce wrong characters.
             # --: prevents text starting with '-' from being parsed as a flag.
-            ["xdotool", "type", "--clearmodifiers", "--", text],
+            ["xdotool", "type", "--clearmodifiers", "--delay", "20", "--", text],
             check=False,
+            timeout=10,
         )
         return result.returncode == 0
-    except FileNotFoundError:
+    except (FileNotFoundError, subprocess.TimeoutExpired):
         return False
 
 
