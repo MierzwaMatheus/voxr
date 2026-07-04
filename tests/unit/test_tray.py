@@ -17,6 +17,21 @@ def make_tray() -> TrayIcon:
     return TrayIcon(on_settings=MagicMock(), on_quit=MagicMock())
 
 
+class TestTrayIconShowNotification:
+    def test_show_notification_does_not_raise(self):
+        tray = make_tray()
+        tray.show_notification("Texto transcrito com sucesso")
+
+    def test_show_notification_empty_message_does_not_raise(self):
+        tray = make_tray()
+        tray.show_notification("")
+
+    def test_show_notification_records_last_message(self):
+        tray = make_tray()
+        tray.show_notification("gravação finalizada")
+        assert tray._last_notification == "gravação finalizada"
+
+
 class TestTrayIconSetState:
     def test_set_state_recording_marks_state_and_updates_indicator(self):
         tray = make_tray()

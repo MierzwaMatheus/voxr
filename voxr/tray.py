@@ -33,6 +33,7 @@ class TrayIcon:
         self._on_settings = on_settings
         self._on_quit = on_quit
 
+        self._last_notification: str = ""
         if _HAS_APP_INDICATOR:
             self._indicator = AppIndicator3.Indicator.new(
                 "voxr",
@@ -59,6 +60,7 @@ class TrayIcon:
             self._indicator.set_status(_STATUS_MAP[state])
 
     def show_notification(self, message: str) -> None:
+        self._last_notification = message
         if _HAS_APP_INDICATOR:
             n = Notify.Notification.new("voxr", message, _ICON_MAP[self._state])
             n.show()
