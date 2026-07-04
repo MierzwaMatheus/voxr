@@ -17,6 +17,31 @@ def make_widget() -> RecordingWidget:
     return RecordingWidget()
 
 
+class TestRecordingWidgetAnimation:
+    def test_show_recording_starts_animation_timer(self):
+        widget = make_widget()
+        widget.show_recording(MagicMock())
+        assert widget._animation_interval_ms == 50
+
+    def test_hide_stops_animation(self):
+        widget = make_widget()
+        widget.show_recording(MagicMock())
+        widget.hide()
+        assert widget._timer_id is None
+
+    def test_show_processing_switches_mode_for_spinner(self):
+        widget = make_widget()
+        widget.show_recording(MagicMock())
+        widget.show_processing()
+        assert widget._mode == "processing"
+
+    def test_show_recording_stores_audio_stream(self):
+        widget = make_widget()
+        stream = MagicMock()
+        widget.show_recording(stream)
+        assert widget._audio_stream is stream
+
+
 class TestRecordingWidgetUpdateTimer:
     def test_update_timer_stores_elapsed_and_max(self):
         widget = make_widget()

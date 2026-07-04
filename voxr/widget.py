@@ -19,6 +19,8 @@ class RecordingWidget:
         self._elapsed: float = 0.0
         self._max_seconds: int = 0
         self._countdown_active: bool = False
+        self._animation_interval_ms: int = 50
+        self._audio_stream = None
 
     def show_recording(self, audio_level_stream) -> None:
         self._mode = "recording"
