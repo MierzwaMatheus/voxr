@@ -165,6 +165,29 @@ class TestConfigLoad:
             if "JSONDecodeError" in type(e).__name__:
                 pytest.fail("load() raised JSONDecodeError")
 
+    def test_load_returns_default_values_when_json_is_corrupted(self, tmp_path, monkeypatch):
+        import voxr.config as config_module
+        config_file = tmp_path / "config.json"
+        config_file.write_text("{ not valid json !!! }")
+        monkeypatch.setattr(config_module, "CONFIG_FILE", config_file)
+        result = config_module.load()
+        assert isinstance(result, Configuration)
+        assert result.model_name == constants.DEFAULT_MODEL
+        assert result.hotkey == constants.DEFAULT_HOTKEY
+        assert result.max_recording_seconds == constants.DEFAULT_MAX_SECONDS
+        assert result.vad_enabled is True
+
+    def test_load_propagates_permission_error(self, tmp_path, monkeypatch):
+        """Unexpected OS errors must not be silently swallowed."""
+        from unittest.mock import patch
+        import voxr.config as config_module
+        config_file = tmp_path / "config.json"
+        config_file.write_text("{}")
+        monkeypatch.setattr(config_module, "CONFIG_FILE", config_file)
+        with patch.object(config_file.__class__, "read_text", side_effect=PermissionError("no access")):
+            with pytest.raises(PermissionError):
+                config_module.load()
+
     def test_get_default_returns_configuration(self):
         import voxr.config as config_module
         result = config_module.get_default()
