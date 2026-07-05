@@ -2,10 +2,15 @@
 import sys
 from unittest.mock import MagicMock
 
-# Stub hardware-dependent libs so unit tests run without PortAudio/libsndfile/X11
-for _mod in ("sounddevice", "soundfile", "faster_whisper", "pynput", "pynput.keyboard"):
-    if _mod not in sys.modules:
-        sys.modules[_mod] = MagicMock()
+# Stub hardware-dependent libs so unit tests run without PortAudio/libsndfile/X11/GTK
+_gi_mock = MagicMock()
+for _mod in (
+    "sounddevice", "soundfile", "faster_whisper",
+    "pynput", "pynput.keyboard",
+    "gi", "gi.repository", "gi.repository.AppIndicator3",
+    "gi.repository.Gtk", "gi.repository.GLib", "gi.repository.Notify",
+):
+    sys.modules.setdefault(_mod, _gi_mock if _mod.startswith("gi") else MagicMock())
 
 from voxr.app import VoxrApp  # noqa: E402
 
