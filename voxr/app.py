@@ -114,6 +114,8 @@ class VoxrApp:
             status=SessionStatus.IN_PROGRESS,
         )
         self._gtk(self._widget.show_recording, None)
+        if self._settings_window is not None:
+            self._settings_window.update_recording_state(True)
         self._record_thread = threading.Thread(
             target=self._record_loop, daemon=True, name="voxr-record"
         )
@@ -193,6 +195,8 @@ class VoxrApp:
         self._gtk(self._widget.hide)
         self._gtk(self._tray.set_state, AppState.IDLE)
         self.state = AppState.IDLE
+        if self._settings_window is not None:
+            self._settings_window.update_recording_state(False)
 
     def on_timeout(self) -> None:
         if self.state == AppState.RECORDING:
@@ -207,6 +211,8 @@ class VoxrApp:
             self._stop_event.set()
         self._session = None
         self._gtk(self._widget.hide)
+        if self._settings_window is not None:
+            self._settings_window.update_recording_state(False)
 
     def run(self) -> None:
         import gi

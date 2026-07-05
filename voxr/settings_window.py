@@ -57,6 +57,13 @@ class SettingsWindow:
         if self._window is not None:
             self._window.set_sensitive(enabled)
 
+    def update_recording_state(self, is_recording: bool) -> None:
+        if hasattr(self, "_hotkey_button"):
+            self._hotkey_button.set_sensitive(not is_recording)
+            self._hotkey_button.set_tooltip_text(
+                "Gravação em andamento" if is_recording else ""
+            )
+
     # --- Private tab builders (layout only — no logic) ---
 
     def _build_general_tab(self):

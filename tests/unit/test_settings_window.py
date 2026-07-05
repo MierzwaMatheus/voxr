@@ -391,6 +391,38 @@ def test_performance_tab_vad_switch_apply_passes_correct_value(cfg):
     assert called_cfg.vad_enabled is True
 
 
+# T137: update_recording_state(True) desabilita hotkey button com tooltip
+def test_update_recording_state_disables_hotkey_button(cfg):
+    gtk = _gtk()
+    gtk.reset_mock()
+    window = MagicMock()
+    gtk.Window.return_value = window
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw.show()
+    sw._hotkey_button = MagicMock()
+
+    sw.update_recording_state(is_recording=True)
+
+    sw._hotkey_button.set_sensitive.assert_called_with(False)
+    sw._hotkey_button.set_tooltip_text.assert_called_with("Gravação em andamento")
+
+
+def test_update_recording_state_enables_hotkey_button_when_idle(cfg):
+    gtk = _gtk()
+    gtk.reset_mock()
+    window = MagicMock()
+    gtk.Window.return_value = window
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw.show()
+    sw._hotkey_button = MagicMock()
+
+    sw.update_recording_state(is_recording=False)
+
+    sw._hotkey_button.set_sensitive.assert_called_with(True)
+
+
 # T100: second call to show() calls present() on existing window, does not recreate
 def test_second_show_calls_present_not_recreate(cfg):
     gtk = _gtk()
