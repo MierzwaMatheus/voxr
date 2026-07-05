@@ -337,8 +337,6 @@ def test_performance_tab_has_slider_with_correct_range(cfg):
 
     # Gtk.Scale deve ter sido criado
     gtk.Scale.assert_called()
-    # Adjustment deve ter sido criado com min=30, max=180, step=30
-    adj_calls = gtk.Adjustment.call_args_list if hasattr(gtk.Adjustment, "call_args_list") else []
     # verificar que _on_slider_changed atualiza o label
     assert hasattr(sw, "_on_slider_changed"), "_on_slider_changed não foi definido"
     sw._slider_label = MagicMock()
