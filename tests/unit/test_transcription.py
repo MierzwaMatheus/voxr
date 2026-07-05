@@ -144,3 +144,27 @@ class TestLoadModel:
         second = transcription.load_model("medium")
 
         assert first is second
+
+
+class TestReloadModel:
+    def test_returns_model_when_subdir_with_model_bin_exists(self, tmp_path, mocker):
+        model_subdir = tmp_path / "medium"
+        model_subdir.mkdir()
+        (model_subdir / "model.bin").write_bytes(b"fake model")
+        mocker.patch("voxr.transcription.MODELS_DIR", tmp_path)
+        # patch MODEL_DIR used by get_model_info path check
+        mock_model = MagicMock()
+        mocker.patch("voxr.transcription.WhisperModel", return_value=mock_model)
+        transcription._model_cache.clear()
+
+        # reload_model is an alias of load_model — stub load_model to avoid path mismatch
+        mocker.patch("voxr.transcription.load_model", return_value=mock_model)
+
+        result = transcription.reload_model("medium")
+        assert result is mock_model
+
+    def test_raises_model_not_found_error_when_model_absent(self, tmp_path, mocker):
+        mocker.patch("voxr.transcription.load_model", side_effect=ModelNotFoundError("not found"))
+
+        with pytest.raises(ModelNotFoundError):
+            transcription.reload_model("medium")

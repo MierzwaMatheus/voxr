@@ -5,13 +5,13 @@ from pathlib import Path
 from faster_whisper import WhisperModel
 
 from voxr.enums import ChunkStatus, TranscriptionStatus
+from voxr.exceptions import ModelNotFoundError
 from voxr.models import ChunkResult, TranscriptionResult
 
 MODELS_DIR = Path.home() / ".local" / "share" / "voxr" / "models"
 
-
-class ModelNotFoundError(Exception):
-    pass
+# Re-exported for backwards compatibility (app.py: from voxr.transcription import ModelNotFoundError)
+__all__ = ["ModelNotFoundError", "load_model", "reload_model", "transcribe", "transcribe_session"]
 
 
 _model_cache: dict = {}
@@ -26,6 +26,10 @@ def load_model(model_name: str) -> WhisperModel:
     model = WhisperModel(str(model_path), device="cpu", compute_type="int8")
     _model_cache[model_name] = model
     return model
+
+
+def reload_model(model_name: str) -> WhisperModel:
+    return load_model(model_name)
 
 
 _MAX_RETRIES = 2
