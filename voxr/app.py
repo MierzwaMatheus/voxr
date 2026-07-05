@@ -3,7 +3,7 @@ import threading
 import time
 import uuid
 
-from voxr import audio, injection, transcription
+from voxr import audio, config, injection, transcription
 from voxr.constants import MODEL_DIR
 from voxr.enums import AppState, InputMode, SessionStatus
 from voxr.hotkey import HotkeyCallbacks, HotkeyListener
@@ -25,6 +25,7 @@ class VoxrApp:
         # know a loop is running. This flag makes _gtk() and the countdown timer
         # schedule work on the main loop from any thread.
         self._gtk_loop_running: bool = False
+        self._settings_window = None
 
         self._widget = RecordingWidget()
         self._tray = TrayIcon(
@@ -43,6 +44,29 @@ class VoxrApp:
             )
         else:
             self._hotkey = None
+
+    def apply_settings(self, new_config: Configuration) -> None:
+        if new_config.hotkey != self._config.hotkey and self._hotkey:
+            self._hotkey.update_hotkey(new_config.hotkey)
+        if new_config.model_name != self._config.model_name and self.state == AppState.IDLE:
+            self._model = transcription.reload_model(new_config.model_name)
+        config.save(new_config)
+        self._config = new_config
+
+    def open_settings(self) -> None:
+        from voxr.settings_window import SettingsWindow
+        if self._settings_window is not None:
+            self._settings_window.show()
+            return
+        self._settings_window = SettingsWindow(
+            config=self._config,
+            on_apply=self.apply_settings,
+            on_cancel=self._close_settings,
+        )
+        self._settings_window.show()
+
+    def _close_settings(self) -> None:
+        self._settings_window = None
 
     def _gtk(self, fn, *args) -> None:
         """Schedule fn(*args) on the GTK main thread when a loop is running, else call directly.

@@ -1,6 +1,14 @@
 from typing import Callable
 
-from voxr.models import Configuration
+from voxr.constants import MODEL_DIR
+from voxr.models import Configuration, ModelInfo
+
+
+def get_model_info(model_name: str) -> ModelInfo:
+    model_bin = MODEL_DIR / model_name / "model.bin"
+    if model_bin.exists():
+        return ModelInfo(model_name=model_name, is_cached=True, path=str(model_bin))
+    return ModelInfo(model_name=model_name, is_cached=False, path=None)
 
 
 class SettingsWindow:

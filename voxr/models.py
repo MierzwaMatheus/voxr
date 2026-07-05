@@ -47,6 +47,13 @@ class Configuration:
 
 
 @dataclass
+class ModelInfo:
+    model_name: str
+    is_cached: bool
+    path: str | None = None
+
+
+@dataclass
 class RecordingSession:
     session_id: str
     start_time: float
