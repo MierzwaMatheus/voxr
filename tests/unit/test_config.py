@@ -1,5 +1,8 @@
+from unittest.mock import patch
+
 import pytest
 
+import voxr.config as config_module
 from voxr import constants
 from voxr.enums import InputMode
 from voxr.models import Configuration
@@ -179,8 +182,6 @@ class TestConfigLoad:
 
     def test_load_propagates_permission_error(self, tmp_path, monkeypatch):
         """Unexpected OS errors must not be silently swallowed."""
-        from unittest.mock import patch
-        import voxr.config as config_module
         config_file = tmp_path / "config.json"
         config_file.write_text("{}")
         monkeypatch.setattr(config_module, "CONFIG_FILE", config_file)
@@ -189,12 +190,10 @@ class TestConfigLoad:
                 config_module.load()
 
     def test_get_default_returns_configuration(self):
-        import voxr.config as config_module
         result = config_module.get_default()
         assert isinstance(result, Configuration)
 
     def test_get_default_has_expected_defaults(self):
-        import voxr.config as config_module
         result = config_module.get_default()
         assert result.max_recording_seconds == constants.DEFAULT_MAX_SECONDS
         assert result.vad_enabled is True

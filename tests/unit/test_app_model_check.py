@@ -1,17 +1,15 @@
 """Tests for model presence verification in VoxrApp._do_process()."""
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 # Stub hardware-dependent libs so unit tests run without PortAudio/libsndfile
 for _mod in ("sounddevice", "soundfile", "faster_whisper"):
     if _mod not in sys.modules:
         sys.modules[_mod] = MagicMock()
 
-import pytest
-
-from voxr.app import VoxrApp
-from voxr.enums import AppState
-from voxr.models import Configuration, RecordingSession, InputMode, SessionStatus
+from voxr.app import VoxrApp  # noqa: E402
+from voxr.enums import AppState  # noqa: E402
+from voxr.models import Configuration, RecordingSession  # noqa: E402
 
 
 def make_app(tmp_path, model_name="medium", model_bin_exists=False):

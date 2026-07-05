@@ -1,6 +1,5 @@
 """Tests for VoxrApp._cleanup_partial_downloads() behavior."""
 import sys
-from pathlib import Path
 from unittest.mock import MagicMock
 
 # Stub hardware-dependent libs so unit tests run without PortAudio/libsndfile
@@ -8,9 +7,7 @@ for _mod in ("sounddevice", "soundfile", "faster_whisper"):
     if _mod not in sys.modules:
         sys.modules[_mod] = MagicMock()
 
-import pytest
-
-from voxr.app import VoxrApp
+from voxr.app import VoxrApp  # noqa: E402
 
 
 class TestCleanupPartialDownloads:
