@@ -48,4 +48,4 @@ ruff check voxr/ tests/
 
 ## License
 
-MIT
+AGPL-3.0-only — see [LICENSE](LICENSE)

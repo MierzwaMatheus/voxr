@@ -1,4 +1,9 @@
+import sys
 from unittest.mock import MagicMock
+
+if "pynput" not in sys.modules:
+    sys.modules["pynput"] = MagicMock()
+    sys.modules["pynput.keyboard"] = MagicMock()
 
 
 def test_main_instantiates_voxr_app_and_calls_run(mocker):
@@ -18,3 +23,10 @@ def test_voxr_main_module_defines_main_function():
     import importlib
     mod = importlib.import_module("voxr.__main__")
     assert callable(getattr(mod, "main", None))
+
+
+def test_voxrapp_without_config_sets_hotkey_none():
+    """VoxrApp(config=None) inicializa _hotkey como None (sem listener)."""
+    from voxr.app import VoxrApp
+    app = VoxrApp(config=None, model=MagicMock())
+    assert app._hotkey is None

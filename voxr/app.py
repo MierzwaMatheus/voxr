@@ -18,6 +18,11 @@ class VoxrApp:
         self._stop_event: threading.Event | None = None
         self._session: RecordingSession | None = None
         self._record_thread: threading.Thread | None = None
+        # True once run() starts the GTK main loop. Hotkey callbacks fire on the
+        # pynput thread, where GLib.main_depth() is 0 — so we can't rely on it to
+        # know a loop is running. This flag makes _gtk() and the countdown timer
+        # schedule work on the main loop from any thread.
+        self._gtk_loop_running: bool = False
 
         self._widget = RecordingWidget()
         self._tray = TrayIcon(
@@ -43,13 +48,13 @@ class VoxrApp:
         Allows unit/integration tests (no main loop) to verify widget calls synchronously
         while production code (Gtk.main() running) stays thread-safe.
         """
-        try:
-            from gi.repository import GLib
-            if GLib.main_depth() > 0:
+        if self._gtk_loop_running:
+            try:
+                from gi.repository import GLib
                 GLib.idle_add(fn, *args)
                 return
-        except Exception:
-            pass
+            except Exception:
+                pass
         fn(*args)
 
     def on_hotkey_activate(self) -> None:
@@ -76,31 +81,45 @@ class VoxrApp:
         )
         self._record_thread.start()
 
-        # In production (GLib main loop active), fire on_timeout after max_recording_seconds
-        # so the timeout path goes through the same _stop_and_process as a manual stop.
-        try:
-            from gi.repository import GLib
-            if GLib.main_depth() > 0:
-                max_ms = (self._config.max_recording_seconds if self._config else 60) * 1000
+        # In production (GLib main loop active), drive the countdown timer and
+        # fire on_timeout — both via a 1-second GLib tick so the widget stays in sync.
+        # timeout_add is thread-safe: even called from the pynput thread, the tick
+        # runs on the main loop.
+        if self._gtk_loop_running:
+            try:
+                from gi.repository import GLib
+                max_seconds = self._config.max_recording_seconds if self._config else 60
+                start_time = time.time()
 
-                def _timeout_cb() -> bool:
-                    if self.state == AppState.RECORDING:
+                def _tick() -> bool:
+                    if self.state != AppState.RECORDING:
+                        return False  # recording ended, stop ticking
+                    elapsed = time.time() - start_time
+                    self._widget.update_timer(elapsed, max_seconds)
+                    if elapsed >= max_seconds:
                         self.on_timeout()
-                    return False  # one-shot timer
+                        return False
+                    return True  # continue ticking
 
-                GLib.timeout_add(max_ms, _timeout_cb)
-        except Exception:
-            pass
+                GLib.timeout_add(1000, _tick)
+            except Exception:
+                pass
 
     def _record_loop(self) -> None:
         # Runs in the recording thread. Only records — never processes.
         # Processing is always triggered externally (second hotkey or on_timeout).
+        # Capture session reference locally: on_cancel() may set self._session = None
+        # while this thread is still running.
+        session = self._session
+        if session is None:
+            return
         print("[voxr] gravando…")
         audio_path = audio.record(
-            self._session, self._stop_event, self._config.max_recording_seconds
+            session, self._stop_event, self._config.max_recording_seconds
         )
         self._audio_path = audio_path
-        self._session.audio_file_path = audio_path
+        if self._session is not None:
+            self._session.audio_file_path = audio_path
         print(f"[voxr] áudio salvo: {audio_path}")
 
     def _stop_and_process(self) -> None:
@@ -196,4 +215,5 @@ class VoxrApp:
         audio.start_cache_cleanup_daemon()
 
         print(f"[voxr] Pronto. Hotkey: {self._config.hotkey} | Modelo: {self._config.model_name}")
+        self._gtk_loop_running = True
         Gtk.main()
