@@ -138,6 +138,129 @@ def test_widgets_reflect_config_values_at_init(cfg):
     assert sw._config.max_recording_seconds == cfg.max_recording_seconds
 
 
+# T107: clicar botão hotkey muda label e conecta key-press-event
+def test_hotkey_button_click_enters_capture_mode(cfg):
+    gtk = _gtk()
+    gtk.reset_mock()
+    window = MagicMock()
+    hotkey_button = MagicMock()
+    gtk.Window.return_value = window
+    gtk.Button.return_value = hotkey_button
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw.show()
+
+    # Encontrar o callable conectado ao sinal "clicked" do botão de hotkey
+    clicked_calls = [
+        call for call in hotkey_button.connect.call_args_list
+        if call.args[0] == "clicked"
+    ]
+    assert clicked_calls, "Botão de hotkey não conectou sinal 'clicked'"
+    clicked_handler = clicked_calls[0].args[1]
+
+    # Simular clique
+    clicked_handler(hotkey_button)
+
+    hotkey_button.set_label.assert_called_with("Pressione a combinação...")
+    key_press_calls = [
+        call for call in window.connect.call_args_list
+        if call.args[0] == "key-press-event"
+    ]
+    assert key_press_calls, "Janela não conectou 'key-press-event' após clique no botão"
+
+
+# T108: simular GdkEventKey Ctrl+Shift+d → campo exibe "<ctrl>+<shift>+d"
+def test_key_press_ctrl_shift_d_updates_hotkey(cfg):
+    gtk = _gtk()
+    gdk = sys.modules["gi.repository.Gdk"]
+    gtk.reset_mock()
+    gdk.ModifierType.CONTROL_MASK = 4
+    gdk.ModifierType.SHIFT_MASK = 1
+    gdk.ModifierType.MOD1_MASK = 8
+    gdk.ModifierType.SUPER_MASK = 67108864
+    gdk.keyval_name.return_value = "d"
+
+    window = MagicMock()
+    hotkey_button = MagicMock()
+    gtk.Window.return_value = window
+    gtk.Button.return_value = hotkey_button
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw.show()
+
+    event = MagicMock()
+    event.state = 4 | 1  # CONTROL_MASK | SHIFT_MASK
+
+    sw._on_key_press(MagicMock(), event)
+
+    hotkey_button.set_label.assert_called_with("<ctrl>+<shift>+d")
+    assert sw._config.hotkey == "<ctrl>+<shift>+d"
+
+
+# T109: tecla sem modificador → aviso "Use ao menos um modificador"
+def test_key_press_without_modifier_shows_warning(cfg):
+    gtk = _gtk()
+    gdk = sys.modules["gi.repository.Gdk"]
+    gtk.reset_mock()
+    gdk.ModifierType.CONTROL_MASK = 4
+    gdk.ModifierType.SHIFT_MASK = 1
+    gdk.ModifierType.MOD1_MASK = 8
+    gdk.ModifierType.SUPER_MASK = 67108864
+    gdk.keyval_name.return_value = "a"
+
+    window = MagicMock()
+    hotkey_button = MagicMock()
+    gtk.Window.return_value = window
+    gtk.Button.return_value = hotkey_button
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw.show()
+
+    event = MagicMock()
+    event.state = 0  # sem modificador
+
+    sw._on_key_press(MagicMock(), event)
+
+    sw._hotkey_warning_label.set_text.assert_called_with("Use ao menos um modificador")
+    assert sw._config.hotkey == "<alt>+v"  # não mudou
+
+
+# T111/T114: aba Geral tem warning label vazio por padrão
+def test_general_tab_has_empty_warning_label_by_default(cfg):
+    gtk = _gtk()
+    gtk.reset_mock()
+    window = MagicMock()
+    gtk.Window.return_value = window
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw.show()
+
+    assert hasattr(sw, "_hotkey_warning_label")
+    # label criado com texto vazio
+    warning_label_calls = [
+        call for call in gtk.Label.call_args_list
+        if call.kwargs.get("label") == ""
+    ]
+    assert warning_label_calls, "Gtk.Label(label='') não foi criado para o warning"
+
+
+# T115: combo de input_mode criado com índice correto
+def test_input_mode_combo_created_with_correct_active(cfg):
+    gtk = _gtk()
+    gtk.reset_mock()
+    window = MagicMock()
+    combo = MagicMock()
+    gtk.Window.return_value = window
+    gtk.ComboBoxText.return_value = combo
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw.show()
+
+    from voxr.enums import InputMode
+    expected_index = list(InputMode).index(InputMode.TOGGLE)
+    combo.set_active.assert_called_with(expected_index)
+
+
 # T100: second call to show() calls present() on existing window, does not recreate
 def test_second_show_calls_present_not_recreate(cfg):
     gtk = _gtk()

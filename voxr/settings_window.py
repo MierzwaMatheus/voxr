@@ -1,6 +1,8 @@
+import dataclasses
 from typing import Callable
 
 from voxr.constants import MODEL_DIR
+from voxr.enums import InputMode
 from voxr.models import Configuration, ModelInfo
 
 
@@ -65,8 +67,22 @@ class SettingsWindow:
         hotkey_label = Gtk.Label(label="Hotkey:")
         hotkey_label.set_halign(Gtk.Align.START)
         self._hotkey_button = Gtk.Button(label=self._config.hotkey)
+        self._hotkey_button.connect("clicked", self._on_key_capture_clicked)
+        self._hotkey_warning_label = Gtk.Label(label="")
+        self._hotkey_warning_label.set_halign(Gtk.Align.START)
+
+        input_label = Gtk.Label(label="Modo de entrada:")
+        input_label.set_halign(Gtk.Align.START)
+        self._input_mode_combo = Gtk.ComboBoxText()
+        for mode in InputMode:
+            self._input_mode_combo.append_text(mode.value)
+        self._input_mode_combo.set_active(list(InputMode).index(self._config.input_mode))
+
         box.pack_start(hotkey_label, False, False, 0)
         box.pack_start(self._hotkey_button, False, False, 0)
+        box.pack_start(self._hotkey_warning_label, False, False, 0)
+        box.pack_start(input_label, False, False, 0)
+        box.pack_start(self._input_mode_combo, False, False, 0)
 
         return box
 
@@ -115,6 +131,11 @@ class SettingsWindow:
         self._on_cancel()
 
     def _on_apply_clicked(self) -> None:
+        active = self._input_mode_combo.get_active()
+        if active >= 0:
+            self._config = dataclasses.replace(
+                self._config, input_mode=list(InputMode)[active]
+            )
         self._on_apply(self._config)
 
     def _on_ok_clicked(self) -> None:
@@ -123,6 +144,37 @@ class SettingsWindow:
 
     def _on_delete(self, _widget, _event) -> bool:
         self._on_cancel_clicked()
+        return True
+
+    def _on_key_capture_clicked(self, widget) -> None:
+        widget.set_label("Pressione a combinação...")
+        self._key_capture_handler = self._window.connect("key-press-event", self._on_key_press)
+
+    def _on_key_press(self, _widget, event) -> bool:
+        from gi.repository import Gdk
+        _MODIFIER_MAP = [
+            (Gdk.ModifierType.CONTROL_MASK, "<ctrl>"),
+            (Gdk.ModifierType.MOD1_MASK,    "<alt>"),
+            (Gdk.ModifierType.SHIFT_MASK,   "<shift>"),
+            (Gdk.ModifierType.SUPER_MASK,   "<super>"),
+        ]
+        mods = [label for mask, label in _MODIFIER_MAP if event.state & mask]
+        key_name = Gdk.keyval_name(event.keyval).lower()
+        if not mods:
+            self._hotkey_warning_label.set_text("Use ao menos um modificador")
+            return True
+        hotkey = "+".join(mods + [key_name])
+        _CONFLICT_KEYS = {"<ctrl>+c", "<ctrl>+v", "<ctrl>+z", "<ctrl>+x", "<ctrl>+a"}
+        if hotkey in _CONFLICT_KEYS:
+            self._hotkey_warning_label.set_text(
+                f"Atenção: '{hotkey}' pode conflitar com atalhos do sistema"
+            )
+        else:
+            self._hotkey_warning_label.set_text("")
+        self._config = dataclasses.replace(self._config, hotkey=hotkey)
+        self._hotkey_button.set_label(hotkey)
+        if hasattr(self, "_key_capture_handler"):
+            self._window.disconnect(self._key_capture_handler)
         return True
 
     def _on_window_key_press(self, _widget, event) -> bool:
