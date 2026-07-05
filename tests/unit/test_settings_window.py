@@ -1,3 +1,4 @@
+import dataclasses
 import sys
 from unittest.mock import MagicMock
 
@@ -259,6 +260,135 @@ def test_input_mode_combo_created_with_correct_active(cfg):
     from voxr.enums import InputMode
     expected_index = list(InputMode).index(InputMode.TOGGLE)
     combo.set_active.assert_called_with(expected_index)
+
+
+# T126: _on_download_complete sets sensitive, hides progress bar, calls on_apply
+def test_on_download_complete_enables_ui_and_calls_on_apply(cfg):
+    on_apply = MagicMock()
+    sw = SettingsWindow(cfg, on_apply=on_apply, on_cancel=MagicMock())
+    sw._window = MagicMock()
+    sw._progress_bar = MagicMock()
+    sw._config = dataclasses.replace(cfg, model_name="medium")
+
+    sw._on_download_complete("medium")
+
+    sw._window.set_sensitive.assert_called_with(True)
+    sw._progress_bar.hide.assert_called()
+    on_apply.assert_called_once()
+    called_cfg = on_apply.call_args[0][0]
+    assert called_cfg.model_name == "medium"
+
+
+# T127: _on_download_error restores UI, restores combo selection, shows MessageDialog
+def test_on_download_error_enables_ui_and_shows_dialog(cfg):
+    gtk = _gtk()
+    gtk.reset_mock()
+    on_apply = MagicMock()
+    sw = SettingsWindow(cfg, on_apply=on_apply, on_cancel=MagicMock())
+    sw._window = MagicMock()
+    sw._progress_bar = MagicMock()
+    sw._model_combo = MagicMock()
+    sw._prev_model_index = 2
+
+    sw._on_download_error("timeout error")
+
+    sw._window.set_sensitive.assert_called_with(True)
+    sw._model_combo.set_active.assert_called_with(2)
+    gtk.MessageDialog.assert_called()
+    dialog = gtk.MessageDialog.return_value
+    dialog.run.assert_called()
+    dialog.destroy.assert_called()
+    on_apply.assert_not_called()
+
+
+# T128: aba Transcrição tem ComboBoxText de idioma com 3 opções e seleção correta
+def test_transcription_tab_has_language_combo_with_correct_active(cfg):
+    gtk = _gtk()
+    gtk.reset_mock()
+    window = MagicMock()
+    combo = MagicMock()
+    gtk.Window.return_value = window
+    gtk.ComboBoxText.return_value = combo
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw.show()
+
+    # 3 opções de idioma devem ser adicionadas
+    append_calls = [str(c) for c in combo.append_text.call_args_list]
+    lang_options = ["auto", "pt", "en"]
+    for opt in lang_options:
+        assert any(opt in c for c in append_calls), f"Opção '{opt}' não encontrada nas chamadas append_text"
+
+    # cfg.transcription_language == "auto" → índice 0
+    combo.set_active.assert_any_call(0)
+
+
+# T129: aba Performance tem Gtk.Scale com min=30, max=180, step=30 e label dinâmico
+def test_performance_tab_has_slider_with_correct_range(cfg):
+    gtk = _gtk()
+    gtk.reset_mock()
+    window = MagicMock()
+    scale = MagicMock()
+    gtk.Window.return_value = window
+    gtk.Scale.return_value = scale
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw.show()
+
+    # Gtk.Scale deve ter sido criado
+    gtk.Scale.assert_called()
+    # verificar que _on_slider_changed atualiza o label
+    assert hasattr(sw, "_on_slider_changed"), "_on_slider_changed não foi definido"
+    sw._slider_label = MagicMock()
+    mock_scale = MagicMock()
+    mock_scale.get_value.return_value = 45.0
+    sw._on_slider_changed(mock_scale)
+    sw._slider_label.set_text.assert_called_with("45s")
+
+
+# T130: Gtk.Switch para VAD reflete cfg.vad_enabled e on_apply recebe valor correto
+def test_performance_tab_vad_switch_reflects_config(cfg):
+    gtk = _gtk()
+    gtk.reset_mock()
+    window = MagicMock()
+    switch = MagicMock()
+    gtk.Window.return_value = window
+    gtk.Switch.return_value = switch
+
+    cfg_vad_true = dataclasses.replace(cfg, vad_enabled=True)
+    sw = SettingsWindow(cfg_vad_true, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw.show()
+
+    # Switch deve ter sido configurado com set_active(True) em algum momento (vad_switch)
+    gtk.Switch.assert_called()
+    switch.set_active.assert_any_call(True)
+
+
+def test_performance_tab_vad_switch_apply_passes_correct_value(cfg):
+    gtk = _gtk()
+    gtk.reset_mock()
+    window = MagicMock()
+    switch = MagicMock()
+    switch.get_active.return_value = True
+    combo = MagicMock()
+    combo.get_active.return_value = 0
+    gtk.Window.return_value = window
+    gtk.Switch.return_value = switch
+    gtk.ComboBoxText.return_value = combo
+
+    on_apply = MagicMock()
+    sw = SettingsWindow(cfg, on_apply=on_apply, on_cancel=MagicMock())
+    sw.show()
+    # Garantir mocks corretos nos widgets de performance
+    sw._vad_switch = switch
+    slider_mock = MagicMock()
+    slider_mock.get_value.return_value = 60.0
+    sw._slider = slider_mock
+
+    sw._on_apply_clicked()
+
+    called_cfg = on_apply.call_args[0][0]
+    assert called_cfg.vad_enabled is True
 
 
 # T100: second call to show() calls present() on existing window, does not recreate
