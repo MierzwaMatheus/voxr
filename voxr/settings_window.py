@@ -177,6 +177,29 @@ class SettingsWindow:
             self._window.disconnect(self._key_capture_handler)
         return True
 
+    def _on_download_error(self, error: str) -> None:
+        from gi.repository import Gtk
+        self.set_sensitive(True)
+        if hasattr(self, "_model_combo") and hasattr(self, "_prev_model_index"):
+            self._model_combo.set_active(self._prev_model_index)
+        dialog = Gtk.MessageDialog(
+            transient_for=self._window,
+            flags=0,
+            message_type=Gtk.MessageType.ERROR,
+            buttons=Gtk.ButtonsType.OK,
+            text=str(error),
+        )
+        dialog.run()
+        dialog.destroy()
+
+    def _on_download_complete(self, model_name: str) -> None:
+        self.set_sensitive(True)
+        if hasattr(self, "_progress_bar"):
+            self._progress_bar.hide()
+        new_config = dataclasses.replace(self._config, model_name=model_name)
+        self._config = new_config
+        self._on_apply(new_config)
+
     def _on_window_key_press(self, _widget, event) -> bool:
         from gi.repository import Gdk
         if event.keyval == Gdk.KEY_Escape:

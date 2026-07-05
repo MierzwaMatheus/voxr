@@ -1,3 +1,4 @@
+import dataclasses
 import sys
 from unittest.mock import MagicMock
 
@@ -259,6 +260,45 @@ def test_input_mode_combo_created_with_correct_active(cfg):
     from voxr.enums import InputMode
     expected_index = list(InputMode).index(InputMode.TOGGLE)
     combo.set_active.assert_called_with(expected_index)
+
+
+# T126: _on_download_complete sets sensitive, hides progress bar, calls on_apply
+def test_on_download_complete_enables_ui_and_calls_on_apply(cfg):
+    on_apply = MagicMock()
+    sw = SettingsWindow(cfg, on_apply=on_apply, on_cancel=MagicMock())
+    sw._window = MagicMock()
+    sw._progress_bar = MagicMock()
+    sw._config = dataclasses.replace(cfg, model_name="medium")
+
+    sw._on_download_complete("medium")
+
+    sw._window.set_sensitive.assert_called_with(True)
+    sw._progress_bar.hide.assert_called()
+    on_apply.assert_called_once()
+    called_cfg = on_apply.call_args[0][0]
+    assert called_cfg.model_name == "medium"
+
+
+# T127: _on_download_error restores UI, restores combo selection, shows MessageDialog
+def test_on_download_error_enables_ui_and_shows_dialog(cfg):
+    gtk = _gtk()
+    gtk.reset_mock()
+    on_apply = MagicMock()
+    sw = SettingsWindow(cfg, on_apply=on_apply, on_cancel=MagicMock())
+    sw._window = MagicMock()
+    sw._progress_bar = MagicMock()
+    sw._model_combo = MagicMock()
+    sw._prev_model_index = 2
+
+    sw._on_download_error("timeout error")
+
+    sw._window.set_sensitive.assert_called_with(True)
+    sw._model_combo.set_active.assert_called_with(2)
+    gtk.MessageDialog.assert_called()
+    dialog = gtk.MessageDialog.return_value
+    dialog.run.assert_called()
+    dialog.destroy.assert_called()
+    on_apply.assert_not_called()
 
 
 # T100: second call to show() calls present() on existing window, does not recreate
