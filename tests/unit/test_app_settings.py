@@ -7,13 +7,24 @@ import pytest
 for _mod in ("sounddevice", "soundfile", "faster_whisper"):
     if _mod not in sys.modules:
         sys.modules[_mod] = MagicMock()
-# Stub GTK so tests run without a display
-for _mod in ("gi", "gi.repository", "gi.repository.Gtk", "gi.repository.Gdk", "gi.repository.GLib"):
-    if _mod not in sys.modules:
-        sys.modules[_mod] = MagicMock()
 
-from voxr.models import Configuration  # noqa: E402
+# Stub GTK — gi.repository.Gtk must also be an attribute of gi.repository
+if "gi" not in sys.modules:
+    _gi_mock = MagicMock()
+    _gtk_mock = MagicMock()
+    _gdk_mock = MagicMock()
+    _glib_mock = MagicMock()
+    _gi_mock.repository.Gtk = _gtk_mock
+    _gi_mock.repository.Gdk = _gdk_mock
+    _gi_mock.repository.GLib = _glib_mock
+    sys.modules["gi"] = _gi_mock
+    sys.modules["gi.repository"] = _gi_mock.repository
+    sys.modules["gi.repository.Gtk"] = _gtk_mock
+    sys.modules["gi.repository.Gdk"] = _gdk_mock
+    sys.modules["gi.repository.GLib"] = _glib_mock
+
 from voxr.enums import InputMode  # noqa: E402
+from voxr.models import Configuration  # noqa: E402
 
 
 @pytest.fixture
@@ -33,8 +44,6 @@ def cfg() -> Configuration:
 
 
 from voxr.app import VoxrApp  # noqa: E402
-from voxr.enums import AppState  # noqa: E402
-
 
 # --- T088: apply_settings ---
 
@@ -100,3 +109,43 @@ def test_apply_settings_saves_config(cfg, mocker):
     mock_save = mocker.patch("voxr.app.config.save")
     app.apply_settings(cfg)
     mock_save.assert_called_once_with(cfg)
+
+
+# --- T098: open_settings ---
+
+def test_open_settings_creates_settings_window_and_calls_show(cfg, mocker):
+    app = _make_app(cfg)
+    mock_sw_class = mocker.patch("voxr.app.SettingsWindow")
+    mock_sw = MagicMock()
+    mock_sw_class.return_value = mock_sw
+
+    app.open_settings()
+
+    mock_sw_class.assert_called_once_with(
+        config=cfg,
+        on_apply=app.apply_settings,
+        on_cancel=app._close_settings,
+    )
+    mock_sw.show.assert_called_once()
+
+
+def test_open_settings_stores_reference(cfg, mocker):
+    app = _make_app(cfg)
+    mock_sw_class = mocker.patch("voxr.app.SettingsWindow")
+    mock_sw = MagicMock()
+    mock_sw_class.return_value = mock_sw
+
+    app.open_settings()
+
+    assert app._settings_window is mock_sw
+
+
+# T100: second open_settings call calls present on existing window
+def test_open_settings_second_call_calls_present(cfg, mocker):
+    app = _make_app(cfg)
+    mock_sw = MagicMock()
+    app._settings_window = mock_sw
+
+    app.open_settings()
+
+    mock_sw.show.assert_called_once()

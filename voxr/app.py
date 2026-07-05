@@ -8,6 +8,7 @@ from voxr.constants import MODEL_DIR
 from voxr.enums import AppState, InputMode, SessionStatus
 from voxr.hotkey import HotkeyCallbacks, HotkeyListener
 from voxr.models import Configuration, RecordingSession
+from voxr.settings_window import SettingsWindow
 from voxr.tray import TrayIcon
 from voxr.widget import RecordingWidget
 
@@ -29,7 +30,7 @@ class VoxrApp:
 
         self._widget = RecordingWidget()
         self._tray = TrayIcon(
-            on_settings=lambda: None,
+            on_settings=self.open_settings,
             on_quit=lambda: None,
         )
         if config is not None:
@@ -54,7 +55,6 @@ class VoxrApp:
         self._config = new_config
 
     def open_settings(self) -> None:
-        from voxr.settings_window import SettingsWindow
         if self._settings_window is not None:
             self._settings_window.show()
             return

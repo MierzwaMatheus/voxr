@@ -148,13 +148,11 @@ class TestLoadModel:
 
 class TestReloadModel:
     def test_returns_model_when_subdir_with_model_bin_exists(self, tmp_path, mocker):
-        from voxr.constants import MODEL_DIR
         model_subdir = tmp_path / "medium"
         model_subdir.mkdir()
         (model_subdir / "model.bin").write_bytes(b"fake model")
         mocker.patch("voxr.transcription.MODELS_DIR", tmp_path)
         # patch MODEL_DIR used by get_model_info path check
-        import voxr.transcription as tr
         mock_model = MagicMock()
         mocker.patch("voxr.transcription.WhisperModel", return_value=mock_model)
         transcription._model_cache.clear()
