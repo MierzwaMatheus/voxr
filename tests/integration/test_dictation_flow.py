@@ -128,8 +128,8 @@ class TestClipboardFallback:
 
         mock_clipboard.assert_called_once_with(FAKE_TRANSCRIBED_TEXT)
 
-    def test_clipboard_not_used_when_inject_succeeds(self, mocker):
-        """Se inject_text() retorna True, copy_to_clipboard() não é chamado."""
+    def test_clipboard_always_used_even_when_inject_succeeds(self, mocker):
+        """Clipboard é sempre populado, mesmo quando inject_text() funciona (à prova de falhas)."""
         config = make_config()
         mock_model = MagicMock()
 
@@ -145,7 +145,7 @@ class TestClipboardFallback:
         app.on_hotkey_activate()
         app.on_hotkey_activate()
 
-        mock_clipboard.assert_not_called()
+        mock_clipboard.assert_called_once_with(FAKE_TRANSCRIBED_TEXT)
 
 
 class TestMaxDurationTimeout:
@@ -314,3 +314,63 @@ class TestCleanCancel:
         app.on_cancel()
 
         mock_insert.assert_not_called()
+
+
+class TestRecordLoopGuard:
+    """Garante que _record_loop não explode se on_cancel() zerar session antes do áudio terminar."""
+
+    def test_record_loop_with_session_none_is_noop(self, mocker):
+        """_record_loop() retorna silenciosamente quando session já é None ao iniciar."""
+        mocker.patch("voxr.app.audio.record", return_value=FAKE_AUDIO_PATH)
+        mocker.patch("voxr.app.HotkeyListener")
+        mocker.patch("voxr.app.TrayIcon")
+        mocker.patch("voxr.app.RecordingWidget")
+
+        app = VoxrApp(config=make_config(), model=MagicMock())
+        app._session = None
+        app._stop_event = None
+
+        # Não deve levantar exceção
+        app._record_loop()
+
+
+class TestDoProcessGuard:
+    """L125 — _do_process() é noop quando session é None (race condition cancel)."""
+
+    def test_do_process_with_session_none_is_noop(self, mocker):
+        """_do_process() retorna sem transcrever nem injetar se _session for None."""
+        mock_transcribe = mocker.patch("voxr.app.transcription.transcribe_session")
+        mock_insert = mocker.patch("voxr.app.injection.insert_or_clipboard")
+        mocker.patch("voxr.app.HotkeyListener")
+        mocker.patch("voxr.app.TrayIcon")
+        mocker.patch("voxr.app.RecordingWidget")
+
+        app = VoxrApp(config=make_config(), model=MagicMock())
+        app._session = None
+        app._do_process()
+
+        mock_transcribe.assert_not_called()
+        mock_insert.assert_not_called()
+
+
+class TestTrayUpdateAfterProcessing:
+    """L125 — tray deve refletir IDLE após transcrição completar."""
+
+    def test_tray_set_state_idle_after_processing(self, mocker):
+        """Após _do_process(), TrayIcon.set_state é chamado com AppState.IDLE."""
+        mocker.patch("voxr.app.audio.record", return_value=FAKE_AUDIO_PATH)
+        mocker.patch(
+            "voxr.app.transcription.transcribe_session",
+            return_value=MagicMock(full_text=FAKE_TRANSCRIBED_TEXT),
+        )
+        mocker.patch("voxr.app.injection.insert_or_clipboard", return_value="injected")
+        mocker.patch("voxr.app.RecordingWidget")
+        mocker.patch("voxr.app.HotkeyListener")
+        mock_tray = MagicMock()
+        mocker.patch("voxr.app.TrayIcon", return_value=mock_tray)
+
+        app = VoxrApp(config=make_config(), model=MagicMock())
+        app.on_hotkey_activate()
+        app.on_hotkey_activate()
+
+        mock_tray.set_state.assert_called_with(AppState.IDLE)

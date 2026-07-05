@@ -42,9 +42,12 @@ def copy_to_clipboard(text: str) -> None:
 
 
 def insert_or_clipboard(text: str) -> str:
-    """Tenta inject_text. Se retornar False, usa copy_to_clipboard.
-    Retorna 'injected' | 'clipboard'."""
+    """Sempre copia text para o clipboard e também tenta injetar no campo ativo.
+
+    Copiar sempre garante que o texto nunca se perde quando não há campo editável
+    focado (ex.: desktop em foco), sem depender de detecção frágil de janela ativa.
+    Retorna 'injected' se a injeção teve sucesso, senão 'clipboard'."""
+    copy_to_clipboard(text)
     if inject_text(text):
         return "injected"
-    copy_to_clipboard(text)
     return "clipboard"

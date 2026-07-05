@@ -49,8 +49,13 @@ class RecordingWidget:
     def update_timer(self, elapsed: float, max_seconds: int) -> None:
         self._elapsed = elapsed
         self._max_seconds = max_seconds
-        self._countdown_active = (max_seconds - elapsed) <= 10
-        if _HAS_GTK and self._window:
+        remaining = max_seconds - elapsed
+        self._countdown_active = remaining <= 10
+        if _HAS_GTK and self._window and hasattr(self, "_label"):
+            if self._countdown_active:
+                self._label.set_text(f"● Gravando… {int(remaining)}s")
+            else:
+                self._label.set_text("● Gravando…")
             self._window.queue_draw()
 
     def _create_window(self) -> None:

@@ -21,7 +21,10 @@ class HotkeyListener:
         self._listener = None
 
     def start(self) -> None:
-        hotkeys = {self._config.hotkey: self._callbacks.on_activate}
+        hotkeys = {
+            self._config.hotkey: self._callbacks.on_activate,
+            "<esc>": self._callbacks.on_cancel,
+        }
         self._listener = keyboard.GlobalHotKeys(hotkeys)
         self._listener.daemon = True
         self._listener.start()

@@ -61,14 +61,15 @@ class TestCopyToClipboard:
 
 
 class TestInsertOrClipboard:
-    def test_insert_or_clipboard_returns_injected_when_inject_text_succeeds(self, mocker):
+    def test_insert_or_clipboard_always_copies_and_returns_injected_on_success(self, mocker):
+        """Sempre copia para o clipboard, mesmo quando a injeção funciona."""
         mocker.patch("voxr.injection.inject_text", return_value=True)
         mock_copy = mocker.patch("voxr.injection.copy_to_clipboard")
 
         result = injection.insert_or_clipboard("hello world")
 
         assert result == "injected"
-        mock_copy.assert_not_called()
+        mock_copy.assert_called_once_with("hello world")
 
     def test_insert_or_clipboard_copies_and_returns_clipboard_when_inject_fails(self, mocker):
         mocker.patch("voxr.injection.inject_text", return_value=False)
