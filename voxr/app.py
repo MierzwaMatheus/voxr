@@ -1,8 +1,10 @@
+import shutil
 import threading
 import time
 import uuid
 
 from voxr import audio, injection, transcription
+from voxr.constants import MODEL_DIR
 from voxr.enums import AppState, InputMode, SessionStatus
 from voxr.hotkey import HotkeyCallbacks, HotkeyListener
 from voxr.models import Configuration, RecordingSession
@@ -56,6 +58,18 @@ class VoxrApp:
             except Exception:
                 pass
         fn(*args)
+
+    def _cleanup_partial_downloads(self) -> None:
+        """Remove subdirectories inside MODEL_DIR that lack a model.bin file.
+
+        These are left over from interrupted downloads and would cause
+        load_model() to fail silently or raise unexpected errors.
+        """
+        if not MODEL_DIR.exists():
+            return
+        for entry in MODEL_DIR.iterdir():
+            if entry.is_dir() and not (entry / "model.bin").exists():
+                shutil.rmtree(entry)
 
     def on_hotkey_activate(self) -> None:
         if self.state == AppState.IDLE:
@@ -136,6 +150,17 @@ class VoxrApp:
     def _do_process(self) -> None:
         if self._session is None:
             return
+
+        # Verify that the model file is present before attempting transcription.
+        model_name = self._config.model_name if self._config else None
+        if model_name and not (MODEL_DIR / model_name / "model.bin").exists():
+            self._tray.show_notification(
+                "Modelo ausente — abra Configurações para baixá-lo novamente"
+            )
+            self._gtk(self._widget.hide)
+            self.state = AppState.IDLE
+            return
+
         print("[voxr] transcrevendo…")
         result = transcription.transcribe_session(self._session, self._model, self._config)
         print(f"[voxr] texto: {result.full_text!r}")
@@ -211,6 +236,7 @@ class VoxrApp:
             self._tray.set_state(AppState.ERROR)
             self._tray.show_notification("Nenhum microfone detectado")
 
+        self._cleanup_partial_downloads()
         self._hotkey.start()
         audio.start_cache_cleanup_daemon()
 

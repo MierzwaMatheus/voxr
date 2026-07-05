@@ -33,7 +33,7 @@ def load() -> Configuration:
         data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
         data["input_mode"] = InputMode(data.get("input_mode", "toggle"))
         return Configuration(**data)
-    except Exception:
+    except (FileNotFoundError, json.JSONDecodeError):
         config = get_default()
         _ensure_saved(config)
         return config
