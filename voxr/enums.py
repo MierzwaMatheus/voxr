@@ -28,3 +28,12 @@ class AppState(str, Enum):
     RECORDING = "recording"
     PROCESSING = "processing"
     ERROR = "error"
+
+
+class ModelSize(str, Enum):
+    TINY = "tiny"
+    BASE = "base"
+    SMALL = "small"
+    MEDIUM = "medium"
+    LARGE = "large"
+    LARGE_V2 = "large-v2"
