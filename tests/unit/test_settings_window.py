@@ -423,6 +423,25 @@ def test_update_recording_state_enables_hotkey_button_when_idle(cfg):
     sw._hotkey_button.set_sensitive.assert_called_with(True)
 
 
+# T139: fechar janela durante download destrói janela e zera referência
+def test_hide_during_download_destroys_window(cfg):
+    gtk = _gtk()
+    gtk.reset_mock()
+    window = MagicMock()
+    gtk.Window.return_value = window
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw.show()
+
+    mock_thread = MagicMock()
+    sw._download_thread = mock_thread
+
+    sw.hide()
+
+    window.destroy.assert_called()
+    assert sw._window is None
+
+
 # T100: second call to show() calls present() on existing window, does not recreate
 def test_second_show_calls_present_not_recreate(cfg):
     gtk = _gtk()
