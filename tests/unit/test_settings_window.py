@@ -225,6 +225,42 @@ def test_key_press_without_modifier_shows_warning(cfg):
     assert sw._config.hotkey == "<alt>+v"  # não mudou
 
 
+# T111/T114: aba Geral tem warning label vazio por padrão
+def test_general_tab_has_empty_warning_label_by_default(cfg):
+    gtk = _gtk()
+    gtk.reset_mock()
+    window = MagicMock()
+    gtk.Window.return_value = window
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw.show()
+
+    assert hasattr(sw, "_hotkey_warning_label")
+    # label criado com texto vazio
+    warning_label_calls = [
+        call for call in gtk.Label.call_args_list
+        if call.kwargs.get("label") == ""
+    ]
+    assert warning_label_calls, "Gtk.Label(label='') não foi criado para o warning"
+
+
+# T115: combo de input_mode criado com índice correto
+def test_input_mode_combo_created_with_correct_active(cfg):
+    gtk = _gtk()
+    gtk.reset_mock()
+    window = MagicMock()
+    combo = MagicMock()
+    gtk.Window.return_value = window
+    gtk.ComboBoxText.return_value = combo
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw.show()
+
+    from voxr.enums import InputMode
+    expected_index = list(InputMode).index(InputMode.TOGGLE)
+    combo.set_active.assert_called_with(expected_index)
+
+
 # T100: second call to show() calls present() on existing window, does not recreate
 def test_second_show_calls_present_not_recreate(cfg):
     gtk = _gtk()
