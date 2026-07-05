@@ -90,9 +90,20 @@ class SettingsWindow:
         from gi.repository import Gtk
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         box.set_border_width(12)
-        placeholder = Gtk.Label(label="Configurações de transcrição (US3)")
-        placeholder.set_halign(Gtk.Align.START)
-        box.pack_start(placeholder, False, False, 0)
+
+        _LANG_OPTIONS = [("auto", "Auto"), ("pt", "Português"), ("en", "English")]
+        lang_label = Gtk.Label(label="Idioma de transcrição:")
+        lang_label.set_halign(Gtk.Align.START)
+        self._lang_combo = Gtk.ComboBoxText()
+        for value, display in _LANG_OPTIONS:
+            self._lang_combo.append_text(value)
+        lang_values = [v for v, _ in _LANG_OPTIONS]
+        active_lang = self._config.transcription_language
+        idx = lang_values.index(active_lang) if active_lang in lang_values else 0
+        self._lang_combo.set_active(idx)
+
+        box.pack_start(lang_label, False, False, 0)
+        box.pack_start(self._lang_combo, False, False, 0)
         return box
 
     def _build_performance_tab(self):
@@ -131,11 +142,18 @@ class SettingsWindow:
         self._on_cancel()
 
     def _on_apply_clicked(self) -> None:
+        _LANG_OPTIONS = ["auto", "pt", "en"]
         active = self._input_mode_combo.get_active()
         if active >= 0:
             self._config = dataclasses.replace(
                 self._config, input_mode=list(InputMode)[active]
             )
+        if hasattr(self, "_lang_combo"):
+            lang_idx = self._lang_combo.get_active()
+            if 0 <= lang_idx < len(_LANG_OPTIONS):
+                self._config = dataclasses.replace(
+                    self._config, transcription_language=_LANG_OPTIONS[lang_idx]
+                )
         self._on_apply(self._config)
 
     def _on_ok_clicked(self) -> None:
