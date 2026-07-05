@@ -110,10 +110,63 @@ class SettingsWindow:
         from gi.repository import Gtk
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         box.set_border_width(12)
-        placeholder = Gtk.Label(label="Configurações de performance (US4)")
-        placeholder.set_halign(Gtk.Align.START)
-        box.pack_start(placeholder, False, False, 0)
+
+        # Slider max_recording_seconds
+        slider_label = Gtk.Label(label="Tempo máximo de gravação:")
+        slider_label.set_halign(Gtk.Align.START)
+        adj = Gtk.Adjustment(
+            value=self._config.max_recording_seconds,
+            lower=30, upper=180, step_increment=30,
+        )
+        self._slider = Gtk.Scale(orientation=Gtk.Orientation.HORIZONTAL, adjustment=adj)
+        self._slider.set_digits(0)
+        self._slider.set_hexpand(True)
+        self._slider_label = Gtk.Label(label=f"{int(self._config.max_recording_seconds)}s")
+        self._slider_label.set_halign(Gtk.Align.START)
+        self._slider.connect("value-changed", self._on_slider_changed)
+
+        # Switch VAD
+        vad_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        vad_label = Gtk.Label(label="Filtrar silêncio (VAD)")
+        vad_label.set_halign(Gtk.Align.START)
+        self._vad_switch = Gtk.Switch()
+        self._vad_switch.set_active(self._config.vad_enabled)
+        vad_box.pack_start(vad_label, True, True, 0)
+        vad_box.pack_start(self._vad_switch, False, False, 0)
+
+        # Campos desabilitados (Fase 3/4)
+        self._pipeline_check = Gtk.Switch()
+        self._pipeline_check.set_active(self._config.pipeline_mode_enabled)
+        self._pipeline_check.set_sensitive(False)
+        self._pipeline_check.set_tooltip_text("Disponível na Fase 3")
+        pipeline_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        pipeline_label = Gtk.Label(label="Modo pipeline")
+        pipeline_label.set_halign(Gtk.Align.START)
+        pipeline_box.pack_start(pipeline_label, True, True, 0)
+        pipeline_box.pack_start(self._pipeline_check, False, False, 0)
+
+        self._autostart_check = Gtk.Switch()
+        self._autostart_check.set_active(self._config.autostart_enabled)
+        self._autostart_check.set_sensitive(False)
+        self._autostart_check.set_tooltip_text("Disponível na Fase 4")
+        autostart_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        autostart_label = Gtk.Label(label="Iniciar automaticamente")
+        autostart_label.set_halign(Gtk.Align.START)
+        autostart_box.pack_start(autostart_label, True, True, 0)
+        autostart_box.pack_start(self._autostart_check, False, False, 0)
+
+        box.pack_start(slider_label, False, False, 0)
+        box.pack_start(self._slider, False, False, 0)
+        box.pack_start(self._slider_label, False, False, 0)
+        box.pack_start(vad_box, False, False, 0)
+        box.pack_start(pipeline_box, False, False, 0)
+        box.pack_start(autostart_box, False, False, 0)
         return box
+
+    def _on_slider_changed(self, scale) -> None:
+        value = int(scale.get_value())
+        if hasattr(self, "_slider_label"):
+            self._slider_label.set_text(f"{value}s")
 
     def _build_footer(self):
         from gi.repository import Gtk
@@ -154,6 +207,14 @@ class SettingsWindow:
                 self._config = dataclasses.replace(
                     self._config, transcription_language=_LANG_OPTIONS[lang_idx]
                 )
+        if hasattr(self, "_slider"):
+            self._config = dataclasses.replace(
+                self._config, max_recording_seconds=int(self._slider.get_value())
+            )
+        if hasattr(self, "_vad_switch"):
+            self._config = dataclasses.replace(
+                self._config, vad_enabled=bool(self._vad_switch.get_active())
+            )
         self._on_apply(self._config)
 
     def _on_ok_clicked(self) -> None:

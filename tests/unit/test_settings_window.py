@@ -361,9 +361,9 @@ def test_performance_tab_vad_switch_reflects_config(cfg):
     sw = SettingsWindow(cfg_vad_true, on_apply=MagicMock(), on_cancel=MagicMock())
     sw.show()
 
-    # Switch deve ter sido configurado com set_active(True)
+    # Switch deve ter sido configurado com set_active(True) em algum momento (vad_switch)
     gtk.Switch.assert_called()
-    switch.set_active.assert_called_with(True)
+    switch.set_active.assert_any_call(True)
 
 
 def test_performance_tab_vad_switch_apply_passes_correct_value(cfg):
@@ -372,12 +372,20 @@ def test_performance_tab_vad_switch_apply_passes_correct_value(cfg):
     window = MagicMock()
     switch = MagicMock()
     switch.get_active.return_value = True
+    combo = MagicMock()
+    combo.get_active.return_value = 0
     gtk.Window.return_value = window
     gtk.Switch.return_value = switch
+    gtk.ComboBoxText.return_value = combo
 
     on_apply = MagicMock()
     sw = SettingsWindow(cfg, on_apply=on_apply, on_cancel=MagicMock())
     sw.show()
+    # Garantir mocks corretos nos widgets de performance
+    sw._vad_switch = switch
+    slider_mock = MagicMock()
+    slider_mock.get_value.return_value = 60.0
+    sw._slider = slider_mock
 
     sw._on_apply_clicked()
 

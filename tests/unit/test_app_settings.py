@@ -1,3 +1,4 @@
+import dataclasses
 import sys
 from unittest.mock import MagicMock
 
@@ -138,6 +139,20 @@ def test_open_settings_stores_reference(cfg, mocker):
     app.open_settings()
 
     assert app._settings_window is mock_sw
+
+
+# T131: apply_settings com max_recording_seconds=45 salva config sem reload_model nem update_hotkey
+def test_apply_settings_max_recording_seconds_saves_without_side_effects(cfg, mocker):
+    app = _make_app(cfg)
+    mock_reload = mocker.patch("voxr.app.transcription.reload_model")
+    mock_save = mocker.patch("voxr.app.config.save")
+
+    new_cfg = dataclasses.replace(cfg, max_recording_seconds=45)
+    app.apply_settings(new_cfg)
+
+    mock_save.assert_called_once_with(new_cfg)
+    mock_reload.assert_not_called()
+    app._hotkey.update_hotkey.assert_not_called()
 
 
 # T100: second open_settings call calls present on existing window
