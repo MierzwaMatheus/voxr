@@ -138,6 +138,37 @@ def test_widgets_reflect_config_values_at_init(cfg):
     assert sw._config.max_recording_seconds == cfg.max_recording_seconds
 
 
+# T107: clicar botão hotkey muda label e conecta key-press-event
+def test_hotkey_button_click_enters_capture_mode(cfg):
+    gtk = _gtk()
+    gtk.reset_mock()
+    window = MagicMock()
+    hotkey_button = MagicMock()
+    gtk.Window.return_value = window
+    gtk.Button.return_value = hotkey_button
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw.show()
+
+    # Encontrar o callable conectado ao sinal "clicked" do botão de hotkey
+    clicked_calls = [
+        call for call in hotkey_button.connect.call_args_list
+        if call.args[0] == "clicked"
+    ]
+    assert clicked_calls, "Botão de hotkey não conectou sinal 'clicked'"
+    clicked_handler = clicked_calls[0].args[1]
+
+    # Simular clique
+    clicked_handler(hotkey_button)
+
+    hotkey_button.set_label.assert_called_with("Pressione a combinação...")
+    key_press_calls = [
+        call for call in window.connect.call_args_list
+        if call.args[0] == "key-press-event"
+    ]
+    assert key_press_calls, "Janela não conectou 'key-press-event' após clique no botão"
+
+
 # T100: second call to show() calls present() on existing window, does not recreate
 def test_second_show_calls_present_not_recreate(cfg):
     gtk = _gtk()

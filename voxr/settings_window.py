@@ -65,6 +65,7 @@ class SettingsWindow:
         hotkey_label = Gtk.Label(label="Hotkey:")
         hotkey_label.set_halign(Gtk.Align.START)
         self._hotkey_button = Gtk.Button(label=self._config.hotkey)
+        self._hotkey_button.connect("clicked", self._on_key_capture_clicked)
         box.pack_start(hotkey_label, False, False, 0)
         box.pack_start(self._hotkey_button, False, False, 0)
 
@@ -124,6 +125,13 @@ class SettingsWindow:
     def _on_delete(self, _widget, _event) -> bool:
         self._on_cancel_clicked()
         return True
+
+    def _on_key_capture_clicked(self, widget) -> None:
+        widget.set_label("Pressione a combinação...")
+        self._key_capture_handler = self._window.connect("key-press-event", self._on_key_press)
+
+    def _on_key_press(self, _widget, _event) -> bool:
+        return False
 
     def _on_window_key_press(self, _widget, event) -> bool:
         from gi.repository import Gdk
