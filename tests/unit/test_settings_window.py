@@ -169,6 +169,62 @@ def test_hotkey_button_click_enters_capture_mode(cfg):
     assert key_press_calls, "Janela não conectou 'key-press-event' após clique no botão"
 
 
+# T108: simular GdkEventKey Ctrl+Shift+d → campo exibe "<ctrl>+<shift>+d"
+def test_key_press_ctrl_shift_d_updates_hotkey(cfg):
+    gtk = _gtk()
+    gdk = sys.modules["gi.repository.Gdk"]
+    gtk.reset_mock()
+    gdk.ModifierType.CONTROL_MASK = 4
+    gdk.ModifierType.SHIFT_MASK = 1
+    gdk.ModifierType.MOD1_MASK = 8
+    gdk.ModifierType.SUPER_MASK = 67108864
+    gdk.keyval_name.return_value = "d"
+
+    window = MagicMock()
+    hotkey_button = MagicMock()
+    gtk.Window.return_value = window
+    gtk.Button.return_value = hotkey_button
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw.show()
+
+    event = MagicMock()
+    event.state = 4 | 1  # CONTROL_MASK | SHIFT_MASK
+
+    sw._on_key_press(MagicMock(), event)
+
+    hotkey_button.set_label.assert_called_with("<ctrl>+<shift>+d")
+    assert sw._config.hotkey == "<ctrl>+<shift>+d"
+
+
+# T109: tecla sem modificador → aviso "Use ao menos um modificador"
+def test_key_press_without_modifier_shows_warning(cfg):
+    gtk = _gtk()
+    gdk = sys.modules["gi.repository.Gdk"]
+    gtk.reset_mock()
+    gdk.ModifierType.CONTROL_MASK = 4
+    gdk.ModifierType.SHIFT_MASK = 1
+    gdk.ModifierType.MOD1_MASK = 8
+    gdk.ModifierType.SUPER_MASK = 67108864
+    gdk.keyval_name.return_value = "a"
+
+    window = MagicMock()
+    hotkey_button = MagicMock()
+    gtk.Window.return_value = window
+    gtk.Button.return_value = hotkey_button
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw.show()
+
+    event = MagicMock()
+    event.state = 0  # sem modificador
+
+    sw._on_key_press(MagicMock(), event)
+
+    sw._hotkey_warning_label.set_text.assert_called_with("Use ao menos um modificador")
+    assert sw._config.hotkey == "<alt>+v"  # não mudou
+
+
 # T100: second call to show() calls present() on existing window, does not recreate
 def test_second_show_calls_present_not_recreate(cfg):
     gtk = _gtk()
