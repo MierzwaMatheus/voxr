@@ -25,7 +25,7 @@ Configuration is stored at `~/.config/voxr/config.json`. The file is created aut
 |-------|------|---------|-------------|
 | `hotkey` | string | `"<alt>+v"` | Global hotkey to start/stop recording. Uses pynput key notation (e.g. `"<ctrl>+<shift>+v"`). Must be non-empty. |
 | `input_mode` | string enum | `"toggle"` | `"toggle"` — press once to start, press again to stop. `"ptt"` — hold to record, release to stop. |
-| `model_name` | string enum | `"base"` | Whisper model size. One of: `tiny`, `base`, `small`, `medium`, `large-v3-turbo`. Larger models are more accurate but slower. |
+| `model_name` | string enum | `"base"` | Whisper model size. One of: `tiny`, `base`, `small`, `medium`, `large`, `large-v2`. Larger models are more accurate but slower. |
 | `transcription_language` | string | `"auto"` | Language code for transcription (e.g. `"pt"`, `"en"`). `"auto"` detects language automatically. |
 | `max_recording_seconds` | integer | `60` | Maximum recording duration in seconds. Must be between `30` and `180`. |
 | `vad_enabled` | boolean | `true` | Enable Voice Activity Detection to filter silence from recordings. |

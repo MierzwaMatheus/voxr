@@ -10,7 +10,7 @@ DEFAULT_HOTKEY = "<alt>+v"
 DEFAULT_MODEL = "medium"
 DEFAULT_MAX_SECONDS = 60
 
-ALLOWED_MODELS = ["tiny", "base", "small", "medium", "large-v3-turbo"]
+ALLOWED_MODELS = ["tiny", "base", "small", "medium", "large", "large-v2"]
 
 MODEL_SIZES_MB: dict[str, int] = {
     "tiny": 75,
