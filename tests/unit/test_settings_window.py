@@ -1,6 +1,5 @@
 import dataclasses
 import sys
-import threading
 from unittest.mock import MagicMock, patch
 
 import pytest
