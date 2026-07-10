@@ -355,6 +355,8 @@ class SettingsWindow:
         from gi.repository import Gtk
 
         self.set_sensitive(True)
+        if hasattr(self, "_progress_bar"):
+            self._progress_bar.hide()
         if hasattr(self, "_model_combo") and hasattr(self, "_prev_model_index"):
             self._model_combo.set_active(self._prev_model_index)
         dialog = Gtk.MessageDialog(

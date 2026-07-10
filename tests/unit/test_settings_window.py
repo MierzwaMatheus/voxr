@@ -303,6 +303,22 @@ def test_on_download_error_enables_ui_and_shows_dialog(cfg):
     on_apply.assert_not_called()
 
 
+# T119: _on_download_error also hides progress bar
+def test_on_download_error_hides_progress_bar(cfg):
+    gtk = _gtk()
+    gtk.reset_mock()
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw._window = MagicMock()
+    sw._progress_bar = MagicMock()
+    sw._model_combo = MagicMock()
+    sw._prev_model_index = 2
+
+    sw._on_download_error("network error")
+
+    sw._progress_bar.hide.assert_called()
+    sw._window.set_sensitive.assert_called_with(True)
+
+
 # T128: aba Transcrição tem ComboBoxText de idioma com 3 opções e seleção correta
 def test_transcription_tab_has_language_combo_with_correct_active(cfg):
     gtk = _gtk()
