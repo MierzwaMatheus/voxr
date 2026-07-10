@@ -496,28 +496,51 @@ def test_transcription_tab_has_model_combo_with_6_options(cfg, tmp_path, monkeyp
             f"Entrada sem indicador de cache/download: {entry}"
         )
 
-    for model_name in ["Tiny", "Base", "Small", "Medium", "Large", "Large-v2"]:
-        assert any(model_name in entry for entry in model_entries), (
-            f"Modelo '{model_name}' não encontrado no combo: {model_entries}"
-        )
 
-    for entry in model_entries:
-        assert "MB" in entry, f"Entrada sem tamanho em MB: {entry}"
+# T117/T122: _on_model_changed atualiza status label
+def test_on_model_changed_shows_download_label_for_uncached(cfg, tmp_path, monkeypatch):
+    import voxr.settings_window as sw_mod
 
-    for entry in model_entries:
-        assert "cache" in entry.lower() or "download" in entry.lower(), (
-            f"Entrada sem indicador de cache/download: {entry}"
-        )
+    monkeypatch.setattr(sw_mod, "MODEL_DIR", tmp_path / "models")
 
-    for model_name in ["Tiny", "Base", "Small", "Medium", "Large", "Large-v2"]:
-        assert any(model_name in entry for entry in model_entries), (
-            f"Modelo '{model_name}' não encontrado no combo: {model_entries}"
-        )
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw._model_infos = {0: "tiny", 1: "base", 2: "small", 3: "medium", 4: "large", 5: "large-v2"}
+    sw._model_status_label = MagicMock()
 
-    for entry in model_entries:
-        assert "MB" in entry, f"Entrada sem tamanho em MB: {entry}"
+    combo = MagicMock()
+    combo.get_active.return_value = 4  # large (not cached)
 
-    for entry in model_entries:
-        assert "cache" in entry.lower() or "download" in entry.lower(), (
-            f"Entrada sem indicador de cache/download: {entry}"
-        )
+    sw._on_model_changed(combo)
+
+    set_text_calls = [str(c) for c in sw._model_status_label.set_text.call_args_list]
+    assert any("download" in c.lower() for c in set_text_calls), (
+        f"Label deve indicar 'requer download' para modelo não cacheado: {set_text_calls}"
+    )
+    assert any("2952" in c for c in set_text_calls), (
+        f"Label deve mostrar tamanho do Large (~2952 MB): {set_text_calls}"
+    )
+
+
+def test_on_model_changed_shows_cached_label_for_cached(cfg, tmp_path, monkeypatch):
+    model_dir = tmp_path / "models"
+    model_subdir = model_dir / "medium"
+    model_subdir.mkdir(parents=True)
+    (model_subdir / "model.bin").write_bytes(b"fake")
+
+    import voxr.settings_window as sw_mod
+
+    monkeypatch.setattr(sw_mod, "MODEL_DIR", model_dir)
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw._model_infos = {0: "tiny", 1: "base", 2: "small", 3: "medium", 4: "large", 5: "large-v2"}
+    sw._model_status_label = MagicMock()
+
+    combo = MagicMock()
+    combo.get_active.return_value = 3  # medium (cached)
+
+    sw._on_model_changed(combo)
+
+    set_text_calls = [str(c) for c in sw._model_status_label.set_text.call_args_list]
+    assert any("cache" in c.lower() for c in set_text_calls), (
+        f"Label deve indicar 'em cache' para modelo cacheado: {set_text_calls}"
+    )

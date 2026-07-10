@@ -218,7 +218,15 @@ class SettingsWindow:
             self._slider_label.set_text(f"{value}s")
 
     def _on_model_changed(self, combo) -> None:
-        pass
+        active = combo.get_active()
+        if active < 0 or active not in self._model_infos:
+            return
+        model_name = self._model_infos[active]
+        info = get_model_info(model_name)
+        if info.is_cached:
+            self._model_status_label.set_text("Em cache")
+        else:
+            self._model_status_label.set_text(f"Requer download (~{info.size_mb} MB)")
 
     def _build_footer(self):
         from gi.repository import Gtk
