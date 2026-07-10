@@ -51,6 +51,14 @@ class ModelInfo:
     model_name: str
     is_cached: bool
     path: str | None = None
+    display_name: str = ""
+    size_mb: int = 0
+
+
+@dataclass
+class DownloadProgress:
+    downloaded_bytes: int
+    total_bytes: int
 
 
 @dataclass

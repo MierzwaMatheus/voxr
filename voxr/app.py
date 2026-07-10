@@ -177,9 +177,8 @@ class VoxrApp:
         if self._session is None:
             return
 
-        # Verify that the model file is present before attempting transcription.
-        model_name = self._config.model_name if self._config else None
-        if model_name and not (MODEL_DIR / model_name / "model.bin").exists():
+        # Verify that the model is loaded before attempting transcription.
+        if self._model is None:
             self._tray.show_notification(
                 "Modelo ausente — abra Configurações para baixá-lo novamente"
             )

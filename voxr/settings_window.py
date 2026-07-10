@@ -1,16 +1,31 @@
 import dataclasses
+import threading
 from typing import Callable
 
-from voxr.constants import MODEL_DIR
+from voxr.constants import MODEL_DIR, MODEL_SIZES_MB
 from voxr.enums import InputMode
-from voxr.models import Configuration, ModelInfo
+from voxr.models import Configuration, DownloadProgress, ModelInfo
+
+_DISPLAY_NAMES: dict[str, str] = {
+    "tiny": "Tiny",
+    "base": "Base",
+    "small": "Small",
+    "medium": "Medium (padrão)",
+    "large": "Large",
+    "large-v2": "Large-v2",
+}
 
 
 def get_model_info(model_name: str) -> ModelInfo:
     model_bin = MODEL_DIR / model_name / "model.bin"
-    if model_bin.exists():
-        return ModelInfo(model_name=model_name, is_cached=True, path=str(model_bin))
-    return ModelInfo(model_name=model_name, is_cached=False, path=None)
+    is_cached = model_bin.exists()
+    return ModelInfo(
+        model_name=model_name,
+        is_cached=is_cached,
+        path=str(model_bin) if is_cached else None,
+        display_name=_DISPLAY_NAMES.get(model_name, model_name),
+        size_mb=MODEL_SIZES_MB.get(model_name, 0),
+    )
 
 
 class SettingsWindow:
@@ -27,6 +42,7 @@ class SettingsWindow:
 
     def show(self) -> None:
         from gi.repository import Gtk
+
         if self._window is not None:
             self._window.present()
             return
@@ -60,14 +76,13 @@ class SettingsWindow:
     def update_recording_state(self, is_recording: bool) -> None:
         if hasattr(self, "_hotkey_button"):
             self._hotkey_button.set_sensitive(not is_recording)
-            self._hotkey_button.set_tooltip_text(
-                "Gravação em andamento" if is_recording else ""
-            )
+            self._hotkey_button.set_tooltip_text("Gravação em andamento" if is_recording else "")
 
     # --- Private tab builders (layout only — no logic) ---
 
     def _build_general_tab(self):
         from gi.repository import Gtk
+
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         box.set_border_width(12)
 
@@ -95,6 +110,7 @@ class SettingsWindow:
 
     def _build_transcription_tab(self):
         from gi.repository import Gtk
+
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         box.set_border_width(12)
 
@@ -109,12 +125,42 @@ class SettingsWindow:
         idx = lang_values.index(active_lang) if active_lang in lang_values else 0
         self._lang_combo.set_active(idx)
 
+        model_label = Gtk.Label(label="Modelo de transcrição:")
+        model_label.set_halign(Gtk.Align.START)
+        self._model_combo = Gtk.ComboBoxText()
+        self._model_infos = {}
+        model_keys = list(MODEL_SIZES_MB.keys())
+        active_model_idx = 0
+        for i, name in enumerate(model_keys):
+            info = get_model_info(name)
+            self._model_infos[i] = name
+            status = "em cache" if info.is_cached else "requer download"
+            entry = f"{info.display_name} ({info.size_mb} MB) — {status}"
+            self._model_combo.append_text(entry)
+            if name == self._config.model_name:
+                active_model_idx = i
+
+        self._model_combo.set_active(active_model_idx)
+        self._model_combo.connect("changed", self._on_model_changed)
+
+        self._model_status_label = Gtk.Label(label="")
+        self._model_status_label.set_halign(Gtk.Align.START)
+
+        self._progress_bar = Gtk.ProgressBar()
+        self._progress_bar.set_hexpand(True)
+        self._progress_bar.hide()
+
         box.pack_start(lang_label, False, False, 0)
         box.pack_start(self._lang_combo, False, False, 0)
+        box.pack_start(model_label, False, False, 0)
+        box.pack_start(self._model_combo, False, False, 0)
+        box.pack_start(self._model_status_label, False, False, 0)
+        box.pack_start(self._progress_bar, False, False, 0)
         return box
 
     def _build_performance_tab(self):
         from gi.repository import Gtk
+
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         box.set_border_width(12)
 
@@ -123,7 +169,9 @@ class SettingsWindow:
         slider_label.set_halign(Gtk.Align.START)
         adj = Gtk.Adjustment(
             value=self._config.max_recording_seconds,
-            lower=30, upper=180, step_increment=30,
+            lower=30,
+            upper=180,
+            step_increment=30,
         )
         self._slider = Gtk.Scale(orientation=Gtk.Orientation.HORIZONTAL, adjustment=adj)
         self._slider.set_digits(0)
@@ -175,8 +223,20 @@ class SettingsWindow:
         if hasattr(self, "_slider_label"):
             self._slider_label.set_text(f"{value}s")
 
+    def _on_model_changed(self, combo) -> None:
+        active = combo.get_active()
+        if active < 0 or active not in self._model_infos:
+            return
+        model_name = self._model_infos[active]
+        info = get_model_info(model_name)
+        if info.is_cached:
+            self._model_status_label.set_text("Em cache")
+        else:
+            self._model_status_label.set_text(f"Requer download (~{info.size_mb} MB)")
+
     def _build_footer(self):
         from gi.repository import Gtk
+
         bar = Gtk.ButtonBox(orientation=Gtk.Orientation.HORIZONTAL)
         bar.set_layout(Gtk.ButtonBoxStyle.END)
         bar.set_spacing(6)
@@ -205,9 +265,7 @@ class SettingsWindow:
         _LANG_OPTIONS = ["auto", "pt", "en"]
         active = self._input_mode_combo.get_active()
         if active >= 0:
-            self._config = dataclasses.replace(
-                self._config, input_mode=list(InputMode)[active]
-            )
+            self._config = dataclasses.replace(self._config, input_mode=list(InputMode)[active])
         if hasattr(self, "_lang_combo"):
             lang_idx = self._lang_combo.get_active()
             if 0 <= lang_idx < len(_LANG_OPTIONS):
@@ -222,6 +280,17 @@ class SettingsWindow:
             self._config = dataclasses.replace(
                 self._config, vad_enabled=bool(self._vad_switch.get_active())
             )
+
+        if hasattr(self, "_model_combo") and hasattr(self, "_model_infos"):
+            model_idx = self._model_combo.get_active()
+            if model_idx in self._model_infos:
+                selected_model = self._model_infos[model_idx]
+                self._config = dataclasses.replace(self._config, model_name=selected_model)
+                info = get_model_info(selected_model)
+                if not info.is_cached:
+                    self._start_download(selected_model)
+                    return
+
         self._on_apply(self._config)
 
     def _on_ok_clicked(self) -> None:
@@ -238,11 +307,12 @@ class SettingsWindow:
 
     def _on_key_press(self, _widget, event) -> bool:
         from gi.repository import Gdk
+
         _MODIFIER_MAP = [
             (Gdk.ModifierType.CONTROL_MASK, "<ctrl>"),
-            (Gdk.ModifierType.MOD1_MASK,    "<alt>"),
-            (Gdk.ModifierType.SHIFT_MASK,   "<shift>"),
-            (Gdk.ModifierType.SUPER_MASK,   "<super>"),
+            (Gdk.ModifierType.MOD1_MASK, "<alt>"),
+            (Gdk.ModifierType.SHIFT_MASK, "<shift>"),
+            (Gdk.ModifierType.SUPER_MASK, "<super>"),
         ]
         mods = [label for mask, label in _MODIFIER_MAP if event.state & mask]
         key_name = Gdk.keyval_name(event.keyval).lower()
@@ -263,9 +333,63 @@ class SettingsWindow:
             self._window.disconnect(self._key_capture_handler)
         return True
 
+    def _start_download(self, model_name: str) -> None:
+        print(f"[voxr] baixando modelo '{model_name}'…")
+        if hasattr(self, "_model_combo"):
+            self._prev_model_index = self._model_combo.get_active()
+        self.set_sensitive(False)
+        if hasattr(self, "_progress_bar"):
+            self._progress_bar.show()
+        self._download_thread = threading.Thread(
+            target=self._download_worker,
+            args=(model_name,),
+            daemon=True,
+            name="voxr-download",
+        )
+        self._download_thread.start()
+
+    def _download_worker(self, model_name: str) -> None:
+        import os
+
+        from gi.repository import GLib
+        from huggingface_hub import hf_hub_download
+
+        model_files = ["model.bin", "config.json"]
+        total_size = MODEL_SIZES_MB.get(model_name, 0) * 1024 * 1024
+        downloaded = 0
+
+        try:
+            for filename in model_files:
+                hf_hub_download(
+                    repo_id=f"Systran/faster-whisper-{model_name}",
+                    filename=filename,
+                )
+                downloaded += (
+                    os.path.getsize(os.path.join(str(MODEL_DIR), model_name, filename))
+                    if os.path.exists(os.path.join(str(MODEL_DIR), model_name, filename))
+                    else 0
+                )
+                progress = DownloadProgress(downloaded_bytes=downloaded, total_bytes=total_size)
+                GLib.idle_add(self._on_download_progress, progress)
+
+            GLib.idle_add(self._on_download_complete, model_name)
+        except Exception as e:
+            print(f"[voxr] erro no download: {e}")
+            GLib.idle_add(self._on_download_error, str(e))
+
+    def _on_download_progress(self, progress: DownloadProgress) -> None:
+        if progress.total_bytes > 0:
+            fraction = progress.downloaded_bytes / progress.total_bytes
+            self._progress_bar.set_fraction(fraction)
+        else:
+            self._progress_bar.pulse()
+
     def _on_download_error(self, error: str) -> None:
         from gi.repository import Gtk
+
         self.set_sensitive(True)
+        if hasattr(self, "_progress_bar"):
+            self._progress_bar.hide()
         if hasattr(self, "_model_combo") and hasattr(self, "_prev_model_index"):
             self._model_combo.set_active(self._prev_model_index)
         dialog = Gtk.MessageDialog(
@@ -288,6 +412,7 @@ class SettingsWindow:
 
     def _on_window_key_press(self, _widget, event) -> bool:
         from gi.repository import Gdk
+
         if event.keyval == Gdk.KEY_Escape:
             self._on_cancel_clicked()
             return True

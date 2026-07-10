@@ -1,6 +1,6 @@
 import dataclasses
 import sys
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -23,7 +23,7 @@ if "gi" not in sys.modules:
 
 
 from voxr.enums import InputMode  # noqa: E402
-from voxr.models import Configuration  # noqa: E402
+from voxr.models import Configuration, DownloadProgress, ModelInfo  # noqa: E402
 from voxr.settings_window import get_model_info  # noqa: E402
 
 
@@ -45,6 +45,7 @@ def cfg() -> Configuration:
 
 # --- T086: ModelInfo / get_model_info ---
 
+
 def test_get_model_info_cached(tmp_path, monkeypatch):
     model_dir = tmp_path / "models"
     model_dir.mkdir()
@@ -53,6 +54,7 @@ def test_get_model_info_cached(tmp_path, monkeypatch):
     (model_subdir / "model.bin").write_bytes(b"fake")
 
     import voxr.settings_window as sw
+
     monkeypatch.setattr(sw, "MODEL_DIR", model_dir)
 
     info = get_model_info("medium")
@@ -66,6 +68,7 @@ def test_get_model_info_not_cached(tmp_path, monkeypatch):
     model_dir.mkdir()
 
     import voxr.settings_window as sw
+
     monkeypatch.setattr(sw, "MODEL_DIR", model_dir)
 
     info = get_model_info("medium")
@@ -153,8 +156,7 @@ def test_hotkey_button_click_enters_capture_mode(cfg):
 
     # Encontrar o callable conectado ao sinal "clicked" do botão de hotkey
     clicked_calls = [
-        call for call in hotkey_button.connect.call_args_list
-        if call.args[0] == "clicked"
+        call for call in hotkey_button.connect.call_args_list if call.args[0] == "clicked"
     ]
     assert clicked_calls, "Botão de hotkey não conectou sinal 'clicked'"
     clicked_handler = clicked_calls[0].args[1]
@@ -164,8 +166,7 @@ def test_hotkey_button_click_enters_capture_mode(cfg):
 
     hotkey_button.set_label.assert_called_with("Pressione a combinação...")
     key_press_calls = [
-        call for call in window.connect.call_args_list
-        if call.args[0] == "key-press-event"
+        call for call in window.connect.call_args_list if call.args[0] == "key-press-event"
     ]
     assert key_press_calls, "Janela não conectou 'key-press-event' após clique no botão"
 
@@ -239,8 +240,7 @@ def test_general_tab_has_empty_warning_label_by_default(cfg):
     assert hasattr(sw, "_hotkey_warning_label")
     # label criado com texto vazio
     warning_label_calls = [
-        call for call in gtk.Label.call_args_list
-        if call.kwargs.get("label") == ""
+        call for call in gtk.Label.call_args_list if call.kwargs.get("label") == ""
     ]
     assert warning_label_calls, "Gtk.Label(label='') não foi criado para o warning"
 
@@ -258,8 +258,9 @@ def test_input_mode_combo_created_with_correct_active(cfg):
     sw.show()
 
     from voxr.enums import InputMode
+
     expected_index = list(InputMode).index(InputMode.TOGGLE)
-    combo.set_active.assert_called_with(expected_index)
+    combo.set_active.assert_any_call(expected_index)
 
 
 # T126: _on_download_complete sets sensitive, hides progress bar, calls on_apply
@@ -301,6 +302,22 @@ def test_on_download_error_enables_ui_and_shows_dialog(cfg):
     on_apply.assert_not_called()
 
 
+# T119: _on_download_error also hides progress bar
+def test_on_download_error_hides_progress_bar(cfg):
+    gtk = _gtk()
+    gtk.reset_mock()
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw._window = MagicMock()
+    sw._progress_bar = MagicMock()
+    sw._model_combo = MagicMock()
+    sw._prev_model_index = 2
+
+    sw._on_download_error("network error")
+
+    sw._progress_bar.hide.assert_called()
+    sw._window.set_sensitive.assert_called_with(True)
+
+
 # T128: aba Transcrição tem ComboBoxText de idioma com 3 opções e seleção correta
 def test_transcription_tab_has_language_combo_with_correct_active(cfg):
     gtk = _gtk()
@@ -317,7 +334,9 @@ def test_transcription_tab_has_language_combo_with_correct_active(cfg):
     append_calls = [str(c) for c in combo.append_text.call_args_list]
     lang_options = ["auto", "pt", "en"]
     for opt in lang_options:
-        assert any(opt in c for c in append_calls), f"Opção '{opt}' não encontrada nas chamadas append_text"
+        assert any(opt in c for c in append_calls), (
+            f"Opção '{opt}' não encontrada nas chamadas append_text"
+        )
 
     # cfg.transcription_language == "auto" → índice 0
     combo.set_active.assert_any_call(0)
@@ -364,7 +383,20 @@ def test_performance_tab_vad_switch_reflects_config(cfg):
     switch.set_active.assert_any_call(True)
 
 
-def test_performance_tab_vad_switch_apply_passes_correct_value(cfg):
+def test_performance_tab_vad_switch_apply_passes_correct_value(cfg, monkeypatch):
+    import voxr.settings_window as sw_mod
+
+    monkeypatch.setattr(
+        sw_mod,
+        "get_model_info",
+        lambda name: ModelInfo(
+            model_name=name,
+            is_cached=True,
+            path="/fake",
+            display_name=name,
+            size_mb=0,
+        ),
+    )
     gtk = _gtk()
     gtk.reset_mock()
     window = MagicMock()
@@ -456,3 +488,217 @@ def test_second_show_calls_present_not_recreate(cfg):
 
     assert gtk.Window.call_count == initial_call_count
     window.present.assert_called()
+
+
+# T116/T121: aba Transcrição tem ComboBoxText de modelos com 6 opções
+def test_transcription_tab_has_model_combo_with_6_options(cfg, tmp_path, monkeypatch):
+    gtk = _gtk()
+    gtk.reset_mock()
+    window = MagicMock()
+    gtk.Window.return_value = window
+    gtk.ComboBoxText.side_effect = lambda: MagicMock()
+
+    import voxr.settings_window as sw_mod
+
+    monkeypatch.setattr(sw_mod, "MODEL_DIR", tmp_path / "models")
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw.show()
+
+    assert hasattr(sw, "_model_combo"), "SettingsWindow deve ter _model_combo"
+
+    model_entries = [str(c) for c in sw._model_combo.append_text.call_args_list]
+    assert sw._model_combo.append_text.call_count == 6, (
+        f"Esperado 6 modelos no combo, got {sw._model_combo.append_text.call_count}"
+    )
+
+    for model_name in ["Tiny", "Base", "Small", "Medium", "Large", "Large-v2"]:
+        assert any(model_name in entry for entry in model_entries), (
+            f"Modelo '{model_name}' não encontrado no combo: {model_entries}"
+        )
+
+    for entry in model_entries:
+        assert "MB" in entry, f"Entrada sem tamanho em MB: {entry}"
+
+    for entry in model_entries:
+        assert "cache" in entry.lower() or "download" in entry.lower(), (
+            f"Entrada sem indicador de cache/download: {entry}"
+        )
+
+
+# T117/T122: _on_model_changed atualiza status label
+def test_on_model_changed_shows_download_label_for_uncached(cfg, tmp_path, monkeypatch):
+    import voxr.settings_window as sw_mod
+
+    monkeypatch.setattr(sw_mod, "MODEL_DIR", tmp_path / "models")
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw._model_infos = {0: "tiny", 1: "base", 2: "small", 3: "medium", 4: "large", 5: "large-v2"}
+    sw._model_status_label = MagicMock()
+
+    combo = MagicMock()
+    combo.get_active.return_value = 4  # large (not cached)
+
+    sw._on_model_changed(combo)
+
+    set_text_calls = [str(c) for c in sw._model_status_label.set_text.call_args_list]
+    assert any("download" in c.lower() for c in set_text_calls), (
+        f"Label deve indicar 'requer download' para modelo não cacheado: {set_text_calls}"
+    )
+    assert any("2952" in c for c in set_text_calls), (
+        f"Label deve mostrar tamanho do Large (~2952 MB): {set_text_calls}"
+    )
+
+
+def test_on_model_changed_shows_cached_label_for_cached(cfg, tmp_path, monkeypatch):
+    model_dir = tmp_path / "models"
+    model_subdir = model_dir / "medium"
+    model_subdir.mkdir(parents=True)
+    (model_subdir / "model.bin").write_bytes(b"fake")
+
+    import voxr.settings_window as sw_mod
+
+    monkeypatch.setattr(sw_mod, "MODEL_DIR", model_dir)
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw._model_infos = {0: "tiny", 1: "base", 2: "small", 3: "medium", 4: "large", 5: "large-v2"}
+    sw._model_status_label = MagicMock()
+
+    combo = MagicMock()
+    combo.get_active.return_value = 3  # medium (cached)
+
+    sw._on_model_changed(combo)
+
+    set_text_calls = [str(c) for c in sw._model_status_label.set_text.call_args_list]
+    assert any("cache" in c.lower() for c in set_text_calls), (
+        f"Label deve indicar 'em cache' para modelo cacheado: {set_text_calls}"
+    )
+
+
+# T118/T123: clicar Aplicar com modelo não cacheado inicia download
+def test_apply_with_uncached_model_starts_download(cfg, tmp_path, monkeypatch):
+    import voxr.settings_window as sw_mod
+
+    monkeypatch.setattr(sw_mod, "MODEL_DIR", tmp_path / "models")
+
+    on_apply = MagicMock()
+    sw = SettingsWindow(cfg, on_apply=on_apply, on_cancel=MagicMock())
+    sw._input_mode_combo = MagicMock()
+    sw._input_mode_combo.get_active.return_value = 0
+    sw._lang_combo = MagicMock()
+    sw._lang_combo.get_active.return_value = 0
+    sw._model_combo = MagicMock()
+    sw._model_combo.get_active.return_value = 4  # large
+    sw._model_infos = {0: "tiny", 1: "base", 2: "small", 3: "medium", 4: "large", 5: "large-v2"}
+    sw._prev_model_index = 3
+    sw._window = MagicMock()
+    sw._progress_bar = MagicMock()
+
+    with patch("voxr.settings_window.threading") as mock_threading:
+        sw._on_apply_clicked()
+
+    sw._window.set_sensitive.assert_called_with(False)
+    sw._progress_bar.show.assert_called()
+    mock_threading.Thread.assert_called_once()
+    mock_threading.Thread.return_value.start.assert_called_once()
+    on_apply.assert_not_called()
+
+
+# T120/T125: _on_download_progress updates progress bar
+def test_on_download_progress_sets_fraction_when_total_known(cfg):
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw._progress_bar = MagicMock()
+
+    progress = DownloadProgress(downloaded_bytes=500, total_bytes=1000)
+    sw._on_download_progress(progress)
+
+    sw._progress_bar.set_fraction.assert_called_with(0.5)
+
+
+def test_on_download_progress_pulses_when_total_unknown(cfg):
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw._progress_bar = MagicMock()
+
+    progress = DownloadProgress(downloaded_bytes=500, total_bytes=0)
+    sw._on_download_progress(progress)
+
+    sw._progress_bar.pulse.assert_called()
+
+
+# T124: _download_worker downloads files and emits progress via GLib.idle_add
+def test_download_worker_downloads_files_and_completes(cfg, monkeypatch):
+    glib = sys.modules["gi.repository.GLib"]
+    glib.reset_mock()
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw._on_download_complete = MagicMock()
+    sw._on_download_progress = MagicMock()
+
+    downloaded_files = []
+
+    def fake_hf_download(repo_id, filename, **kwargs):
+        downloaded_files.append(filename)
+        return f"/fake/{filename}"
+
+    hf_module = MagicMock()
+    hf_module.hf_hub_download = fake_hf_download
+    monkeypatch.setitem(sys.modules, "huggingface_hub", hf_module)
+
+    sw._download_worker("medium")
+
+    assert len(downloaded_files) == 2, f"Expected 2 files (.bin, .json), got {downloaded_files}"
+    assert any(f.endswith(".bin") for f in downloaded_files)
+    assert any(f.endswith(".json") for f in downloaded_files)
+    assert glib.idle_add.call_count >= 3, (
+        f"Expected >=3 idle_add calls (progress + complete), got {glib.idle_add.call_count}"
+    )
+
+
+def test_download_worker_calls_error_on_exception(cfg, monkeypatch):
+    glib = sys.modules["gi.repository.GLib"]
+    glib.reset_mock()
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw._on_download_error = MagicMock()
+    sw._on_download_progress = MagicMock()
+
+    def failing_download(repo_id, filename, **kwargs):
+        raise ConnectionError("network timeout")
+
+    hf_module = MagicMock()
+    hf_module.hf_hub_download = failing_download
+    monkeypatch.setitem(sys.modules, "huggingface_hub", hf_module)
+
+    sw._download_worker("large")
+
+    assert glib.idle_add.called, "GLib.idle_add should be called on error"
+    sw._on_download_error.assert_not_called()
+
+
+def test_download_worker_idle_add_calls_on_complete(cfg, monkeypatch):
+    glib = sys.modules["gi.repository.GLib"]
+    glib.reset_mock()
+
+    on_apply = MagicMock()
+    sw = SettingsWindow(cfg, on_apply=on_apply, on_cancel=MagicMock())
+    sw._window = MagicMock()
+    sw._progress_bar = MagicMock()
+
+    def fake_hf_download(repo_id, filename, **kwargs):
+        return f"/fake/{filename}"
+
+    hf_module = MagicMock()
+    hf_module.hf_hub_download = fake_hf_download
+    monkeypatch.setitem(sys.modules, "huggingface_hub", hf_module)
+
+    sw._download_worker("medium")
+
+    idle_calls = [(c.args[0], c.args[1:]) for c in glib.idle_add.call_args_list]
+    assert len(idle_calls) >= 1
+
+    last_callback, last_args = idle_calls[-1]
+    assert callable(last_callback)
+    last_callback(*last_args)
+    on_apply.assert_called_once()
+    called_cfg = on_apply.call_args[0][0]
+    assert called_cfg.model_name == "medium"
