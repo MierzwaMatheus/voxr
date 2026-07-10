@@ -4,7 +4,7 @@ from typing import Callable
 
 from voxr.constants import MODEL_DIR, MODEL_SIZES_MB
 from voxr.enums import InputMode
-from voxr.models import Configuration, ModelInfo
+from voxr.models import Configuration, DownloadProgress, ModelInfo
 
 _DISPLAY_NAMES: dict[str, str] = {
     "tiny": "Tiny",
@@ -350,6 +350,13 @@ class SettingsWindow:
 
     def _download_worker(self, model_name: str) -> None:
         pass
+
+    def _on_download_progress(self, progress: DownloadProgress) -> None:
+        if progress.total_bytes > 0:
+            fraction = progress.downloaded_bytes / progress.total_bytes
+            self._progress_bar.set_fraction(fraction)
+        else:
+            self._progress_bar.pulse()
 
     def _on_download_error(self, error: str) -> None:
         from gi.repository import Gtk

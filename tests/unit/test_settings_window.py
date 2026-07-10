@@ -24,7 +24,7 @@ if "gi" not in sys.modules:
 
 
 from voxr.enums import InputMode  # noqa: E402
-from voxr.models import Configuration, ModelInfo  # noqa: E402
+from voxr.models import Configuration, DownloadProgress, ModelInfo  # noqa: E402
 from voxr.settings_window import get_model_info  # noqa: E402
 
 
@@ -603,3 +603,24 @@ def test_apply_with_uncached_model_starts_download(cfg, tmp_path, monkeypatch):
     mock_threading.Thread.assert_called_once()
     mock_threading.Thread.return_value.start.assert_called_once()
     on_apply.assert_not_called()
+
+
+# T120/T125: _on_download_progress updates progress bar
+def test_on_download_progress_sets_fraction_when_total_known(cfg):
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw._progress_bar = MagicMock()
+
+    progress = DownloadProgress(downloaded_bytes=500, total_bytes=1000)
+    sw._on_download_progress(progress)
+
+    sw._progress_bar.set_fraction.assert_called_with(0.5)
+
+
+def test_on_download_progress_pulses_when_total_unknown(cfg):
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw._progress_bar = MagicMock()
+
+    progress = DownloadProgress(downloaded_bytes=500, total_bytes=0)
+    sw._on_download_progress(progress)
+
+    sw._progress_bar.pulse.assert_called()
