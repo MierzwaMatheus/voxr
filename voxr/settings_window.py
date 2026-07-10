@@ -349,7 +349,33 @@ class SettingsWindow:
         self._download_thread.start()
 
     def _download_worker(self, model_name: str) -> None:
-        pass
+        import os
+
+        from gi.repository import GLib
+        from huggingface_hub import hf_hub_download
+
+        model_files = ["model.bin", "config.json"]
+        total_size = MODEL_SIZES_MB.get(model_name, 0) * 1024 * 1024
+        downloaded = 0
+
+        try:
+            for filename in model_files:
+                hf_hub_download(
+                    repo_id=f"Systran/faster-whisper-{model_name}",
+                    filename=filename,
+                )
+                downloaded += (
+                    os.path.getsize(os.path.join(str(MODEL_DIR), model_name, filename))
+                    if os.path.exists(os.path.join(str(MODEL_DIR), model_name, filename))
+                    else 0
+                )
+                progress = DownloadProgress(downloaded_bytes=downloaded, total_bytes=total_size)
+                GLib.idle_add(self._on_download_progress, progress)
+
+            GLib.idle_add(self._on_download_complete, model_name)
+        except Exception as e:
+            print(f"[voxr] erro no download: {e}")
+            GLib.idle_add(self._on_download_error, str(e))
 
     def _on_download_progress(self, progress: DownloadProgress) -> None:
         if progress.total_bytes > 0:

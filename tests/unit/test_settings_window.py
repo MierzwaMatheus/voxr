@@ -624,3 +624,82 @@ def test_on_download_progress_pulses_when_total_unknown(cfg):
     sw._on_download_progress(progress)
 
     sw._progress_bar.pulse.assert_called()
+
+
+# T124: _download_worker downloads files and emits progress via GLib.idle_add
+def test_download_worker_downloads_files_and_completes(cfg, monkeypatch):
+    glib = sys.modules["gi.repository.GLib"]
+    glib.reset_mock()
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw._on_download_complete = MagicMock()
+    sw._on_download_progress = MagicMock()
+
+    downloaded_files = []
+
+    def fake_hf_download(repo_id, filename, **kwargs):
+        downloaded_files.append(filename)
+        return f"/fake/{filename}"
+
+    hf_module = MagicMock()
+    hf_module.hf_hub_download = fake_hf_download
+    monkeypatch.setitem(sys.modules, "huggingface_hub", hf_module)
+
+    sw._download_worker("medium")
+
+    assert len(downloaded_files) == 2, f"Expected 2 files (.bin, .json), got {downloaded_files}"
+    assert any(f.endswith(".bin") for f in downloaded_files)
+    assert any(f.endswith(".json") for f in downloaded_files)
+    assert glib.idle_add.call_count >= 3, (
+        f"Expected >=3 idle_add calls (progress + complete), got {glib.idle_add.call_count}"
+    )
+
+
+def test_download_worker_calls_error_on_exception(cfg, monkeypatch):
+    glib = sys.modules["gi.repository.GLib"]
+    glib.reset_mock()
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw._on_download_error = MagicMock()
+    sw._on_download_progress = MagicMock()
+
+    def failing_download(repo_id, filename, **kwargs):
+        raise ConnectionError("network timeout")
+
+    hf_module = MagicMock()
+    hf_module.hf_hub_download = failing_download
+    monkeypatch.setitem(sys.modules, "huggingface_hub", hf_module)
+
+    sw._download_worker("large")
+
+    assert glib.idle_add.called, "GLib.idle_add should be called on error"
+    sw._on_download_error.assert_not_called()
+
+
+def test_download_worker_idle_add_calls_on_complete(cfg, monkeypatch):
+    glib = sys.modules["gi.repository.GLib"]
+    glib.reset_mock()
+
+    on_apply = MagicMock()
+    sw = SettingsWindow(cfg, on_apply=on_apply, on_cancel=MagicMock())
+    sw._window = MagicMock()
+    sw._progress_bar = MagicMock()
+
+    def fake_hf_download(repo_id, filename, **kwargs):
+        return f"/fake/{filename}"
+
+    hf_module = MagicMock()
+    hf_module.hf_hub_download = fake_hf_download
+    monkeypatch.setitem(sys.modules, "huggingface_hub", hf_module)
+
+    sw._download_worker("medium")
+
+    idle_calls = [(c.args[0], c.args[1:]) for c in glib.idle_add.call_args_list]
+    assert len(idle_calls) >= 1
+
+    last_callback, last_args = idle_calls[-1]
+    assert callable(last_callback)
+    last_callback(*last_args)
+    on_apply.assert_called_once()
+    called_cfg = on_apply.call_args[0][0]
+    assert called_cfg.model_name == "medium"
