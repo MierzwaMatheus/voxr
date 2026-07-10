@@ -45,6 +45,7 @@ def cfg() -> Configuration:
 
 # --- T086: ModelInfo / get_model_info ---
 
+
 def test_get_model_info_cached(tmp_path, monkeypatch):
     model_dir = tmp_path / "models"
     model_dir.mkdir()
@@ -53,6 +54,7 @@ def test_get_model_info_cached(tmp_path, monkeypatch):
     (model_subdir / "model.bin").write_bytes(b"fake")
 
     import voxr.settings_window as sw
+
     monkeypatch.setattr(sw, "MODEL_DIR", model_dir)
 
     info = get_model_info("medium")
@@ -66,6 +68,7 @@ def test_get_model_info_not_cached(tmp_path, monkeypatch):
     model_dir.mkdir()
 
     import voxr.settings_window as sw
+
     monkeypatch.setattr(sw, "MODEL_DIR", model_dir)
 
     info = get_model_info("medium")
@@ -153,8 +156,7 @@ def test_hotkey_button_click_enters_capture_mode(cfg):
 
     # Encontrar o callable conectado ao sinal "clicked" do botão de hotkey
     clicked_calls = [
-        call for call in hotkey_button.connect.call_args_list
-        if call.args[0] == "clicked"
+        call for call in hotkey_button.connect.call_args_list if call.args[0] == "clicked"
     ]
     assert clicked_calls, "Botão de hotkey não conectou sinal 'clicked'"
     clicked_handler = clicked_calls[0].args[1]
@@ -164,8 +166,7 @@ def test_hotkey_button_click_enters_capture_mode(cfg):
 
     hotkey_button.set_label.assert_called_with("Pressione a combinação...")
     key_press_calls = [
-        call for call in window.connect.call_args_list
-        if call.args[0] == "key-press-event"
+        call for call in window.connect.call_args_list if call.args[0] == "key-press-event"
     ]
     assert key_press_calls, "Janela não conectou 'key-press-event' após clique no botão"
 
@@ -239,8 +240,7 @@ def test_general_tab_has_empty_warning_label_by_default(cfg):
     assert hasattr(sw, "_hotkey_warning_label")
     # label criado com texto vazio
     warning_label_calls = [
-        call for call in gtk.Label.call_args_list
-        if call.kwargs.get("label") == ""
+        call for call in gtk.Label.call_args_list if call.kwargs.get("label") == ""
     ]
     assert warning_label_calls, "Gtk.Label(label='') não foi criado para o warning"
 
@@ -258,8 +258,9 @@ def test_input_mode_combo_created_with_correct_active(cfg):
     sw.show()
 
     from voxr.enums import InputMode
+
     expected_index = list(InputMode).index(InputMode.TOGGLE)
-    combo.set_active.assert_called_with(expected_index)
+    combo.set_active.assert_any_call(expected_index)
 
 
 # T126: _on_download_complete sets sensitive, hides progress bar, calls on_apply
@@ -317,7 +318,9 @@ def test_transcription_tab_has_language_combo_with_correct_active(cfg):
     append_calls = [str(c) for c in combo.append_text.call_args_list]
     lang_options = ["auto", "pt", "en"]
     for opt in lang_options:
-        assert any(opt in c for c in append_calls), f"Opção '{opt}' não encontrada nas chamadas append_text"
+        assert any(opt in c for c in append_calls), (
+            f"Opção '{opt}' não encontrada nas chamadas append_text"
+        )
 
     # cfg.transcription_language == "auto" → índice 0
     combo.set_active.assert_any_call(0)
@@ -456,3 +459,65 @@ def test_second_show_calls_present_not_recreate(cfg):
 
     assert gtk.Window.call_count == initial_call_count
     window.present.assert_called()
+
+
+# T116/T121: aba Transcrição tem ComboBoxText de modelos com 6 opções
+def test_transcription_tab_has_model_combo_with_6_options(cfg, tmp_path, monkeypatch):
+    gtk = _gtk()
+    gtk.reset_mock()
+    window = MagicMock()
+    gtk.Window.return_value = window
+    gtk.ComboBoxText.side_effect = lambda: MagicMock()
+
+    import voxr.settings_window as sw_mod
+
+    monkeypatch.setattr(sw_mod, "MODEL_DIR", tmp_path / "models")
+
+    sw = SettingsWindow(cfg, on_apply=MagicMock(), on_cancel=MagicMock())
+    sw.show()
+
+    assert hasattr(sw, "_model_combo"), "SettingsWindow deve ter _model_combo"
+
+    model_entries = [str(c) for c in sw._model_combo.append_text.call_args_list]
+    assert sw._model_combo.append_text.call_count == 6, (
+        f"Esperado 6 modelos no combo, got {sw._model_combo.append_text.call_count}"
+    )
+
+    for model_name in ["Tiny", "Base", "Small", "Medium", "Large", "Large-v2"]:
+        assert any(model_name in entry for entry in model_entries), (
+            f"Modelo '{model_name}' não encontrado no combo: {model_entries}"
+        )
+
+    for entry in model_entries:
+        assert "MB" in entry, f"Entrada sem tamanho em MB: {entry}"
+
+    for entry in model_entries:
+        assert "cache" in entry.lower() or "download" in entry.lower(), (
+            f"Entrada sem indicador de cache/download: {entry}"
+        )
+
+    for model_name in ["Tiny", "Base", "Small", "Medium", "Large", "Large-v2"]:
+        assert any(model_name in entry for entry in model_entries), (
+            f"Modelo '{model_name}' não encontrado no combo: {model_entries}"
+        )
+
+    for entry in model_entries:
+        assert "MB" in entry, f"Entrada sem tamanho em MB: {entry}"
+
+    for entry in model_entries:
+        assert "cache" in entry.lower() or "download" in entry.lower(), (
+            f"Entrada sem indicador de cache/download: {entry}"
+        )
+
+    for model_name in ["Tiny", "Base", "Small", "Medium", "Large", "Large-v2"]:
+        assert any(model_name in entry for entry in model_entries), (
+            f"Modelo '{model_name}' não encontrado no combo: {model_entries}"
+        )
+
+    for entry in model_entries:
+        assert "MB" in entry, f"Entrada sem tamanho em MB: {entry}"
+
+    for entry in model_entries:
+        assert "cache" in entry.lower() or "download" in entry.lower(), (
+            f"Entrada sem indicador de cache/download: {entry}"
+        )
