@@ -1,6 +1,7 @@
 import dataclasses
 import sys
-from unittest.mock import MagicMock
+import threading
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -23,7 +24,7 @@ if "gi" not in sys.modules:
 
 
 from voxr.enums import InputMode  # noqa: E402
-from voxr.models import Configuration  # noqa: E402
+from voxr.models import Configuration, ModelInfo  # noqa: E402
 from voxr.settings_window import get_model_info  # noqa: E402
 
 
@@ -367,7 +368,20 @@ def test_performance_tab_vad_switch_reflects_config(cfg):
     switch.set_active.assert_any_call(True)
 
 
-def test_performance_tab_vad_switch_apply_passes_correct_value(cfg):
+def test_performance_tab_vad_switch_apply_passes_correct_value(cfg, monkeypatch):
+    import voxr.settings_window as sw_mod
+
+    monkeypatch.setattr(
+        sw_mod,
+        "get_model_info",
+        lambda name: ModelInfo(
+            model_name=name,
+            is_cached=True,
+            path="/fake",
+            display_name=name,
+            size_mb=0,
+        ),
+    )
     gtk = _gtk()
     gtk.reset_mock()
     window = MagicMock()
@@ -544,3 +558,32 @@ def test_on_model_changed_shows_cached_label_for_cached(cfg, tmp_path, monkeypat
     assert any("cache" in c.lower() for c in set_text_calls), (
         f"Label deve indicar 'em cache' para modelo cacheado: {set_text_calls}"
     )
+
+
+# T118/T123: clicar Aplicar com modelo não cacheado inicia download
+def test_apply_with_uncached_model_starts_download(cfg, tmp_path, monkeypatch):
+    import voxr.settings_window as sw_mod
+
+    monkeypatch.setattr(sw_mod, "MODEL_DIR", tmp_path / "models")
+
+    on_apply = MagicMock()
+    sw = SettingsWindow(cfg, on_apply=on_apply, on_cancel=MagicMock())
+    sw._input_mode_combo = MagicMock()
+    sw._input_mode_combo.get_active.return_value = 0
+    sw._lang_combo = MagicMock()
+    sw._lang_combo.get_active.return_value = 0
+    sw._model_combo = MagicMock()
+    sw._model_combo.get_active.return_value = 4  # large
+    sw._model_infos = {0: "tiny", 1: "base", 2: "small", 3: "medium", 4: "large", 5: "large-v2"}
+    sw._prev_model_index = 3
+    sw._window = MagicMock()
+    sw._progress_bar = MagicMock()
+
+    with patch("voxr.settings_window.threading") as mock_threading:
+        sw._on_apply_clicked()
+
+    sw._window.set_sensitive.assert_called_with(False)
+    sw._progress_bar.show.assert_called()
+    mock_threading.Thread.assert_called_once()
+    mock_threading.Thread.return_value.start.assert_called_once()
+    on_apply.assert_not_called()

@@ -1,4 +1,5 @@
 import dataclasses
+import threading
 from typing import Callable
 
 from voxr.constants import MODEL_DIR, MODEL_SIZES_MB
@@ -145,11 +146,16 @@ class SettingsWindow:
         self._model_status_label = Gtk.Label(label="")
         self._model_status_label.set_halign(Gtk.Align.START)
 
+        self._progress_bar = Gtk.ProgressBar()
+        self._progress_bar.set_hexpand(True)
+        self._progress_bar.hide()
+
         box.pack_start(lang_label, False, False, 0)
         box.pack_start(self._lang_combo, False, False, 0)
         box.pack_start(model_label, False, False, 0)
         box.pack_start(self._model_combo, False, False, 0)
         box.pack_start(self._model_status_label, False, False, 0)
+        box.pack_start(self._progress_bar, False, False, 0)
         return box
 
     def _build_performance_tab(self):
@@ -274,6 +280,17 @@ class SettingsWindow:
             self._config = dataclasses.replace(
                 self._config, vad_enabled=bool(self._vad_switch.get_active())
             )
+
+        if hasattr(self, "_model_combo") and hasattr(self, "_model_infos"):
+            model_idx = self._model_combo.get_active()
+            if model_idx in self._model_infos:
+                selected_model = self._model_infos[model_idx]
+                self._config = dataclasses.replace(self._config, model_name=selected_model)
+                info = get_model_info(selected_model)
+                if not info.is_cached:
+                    self._start_download(selected_model)
+                    return
+
         self._on_apply(self._config)
 
     def _on_ok_clicked(self) -> None:
@@ -315,6 +332,24 @@ class SettingsWindow:
         if hasattr(self, "_key_capture_handler"):
             self._window.disconnect(self._key_capture_handler)
         return True
+
+    def _start_download(self, model_name: str) -> None:
+        print(f"[voxr] baixando modelo '{model_name}'…")
+        if hasattr(self, "_model_combo"):
+            self._prev_model_index = self._model_combo.get_active()
+        self.set_sensitive(False)
+        if hasattr(self, "_progress_bar"):
+            self._progress_bar.show()
+        self._download_thread = threading.Thread(
+            target=self._download_worker,
+            args=(model_name,),
+            daemon=True,
+            name="voxr-download",
+        )
+        self._download_thread.start()
+
+    def _download_worker(self, model_name: str) -> None:
+        pass
 
     def _on_download_error(self, error: str) -> None:
         from gi.repository import Gtk
